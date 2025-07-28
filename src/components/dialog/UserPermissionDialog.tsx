@@ -188,10 +188,10 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
             return;
         }
 
-        if (!validTill) {
-            setError("Please select a valid date");
-            return;
-        }
+        // if (!validTill) {
+        //     setError("Please select a valid date");
+        //     return;
+        // }
 
         if (selectedPermission.length === 0) {
             setError("Please select at least one permission");
@@ -283,9 +283,9 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
 
             const validPermissions = permissions.filter(perm =>
                 perm.PERMISSION_USER_NAME &&
-                perm.PERMISSION_RIGHTS &&
-                perm.PERMISSION_VALID_TILL &&
-                parseInt(perm.PERMISSION_VALID_TILL) > 0
+                perm.PERMISSION_RIGHTS
+                // && perm.PERMISSION_VALID_TILL &&
+                // parseInt(perm.PERMISSION_VALID_TILL) > 0
             );
 
             if (validPermissions.length === 0) {

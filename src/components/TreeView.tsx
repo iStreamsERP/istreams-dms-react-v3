@@ -282,16 +282,25 @@ const TreeView: React.FC = () => {
     }, [documents]);
 
     const buildModulesWithDocuments = useMemo(() => {
-        return modules.map(module => ({
-            ...module,
-            children: module.children.map(category => {
+        return modules.map(module => {
+            // Calculate total documents for all categories in this module
+            const totalDocuments = module.children.reduce((sum, category) => {
                 const categoryDocs = getDocumentsForCategory(category.originalData?.CATEGORY_NAME || '');
-                return {
-                    ...category,
-                    count: categoryDocs.length
-                };
-            })
-        }));
+                return sum + categoryDocs.length;
+            }, 0);
+
+            return {
+                ...module,
+                count: totalDocuments, // Set module count to total documents of all its categories
+                children: module.children.map(category => {
+                    const categoryDocs = getDocumentsForCategory(category.originalData?.CATEGORY_NAME || '');
+                    return {
+                        ...category,
+                        count: categoryDocs.length // Keep category count as is
+                    };
+                })
+            };
+        });
     }, [modules, documents, getDocumentsForCategory]);
 
     const filterData = () => {
@@ -422,7 +431,7 @@ const TreeView: React.FC = () => {
         const isExpanded = expanded.has(item.id);
         const hasChildren = item.children?.length > 0;
         const isCategory = item.type === 'folder' && level === 1;
-        const showBadge = item.count > 0;
+        const showBadge = (level === 0 && item.count > 0) || (isCategory && item.count > 0);
 
         return (
             <div key={item.id} className="select-none">
@@ -616,7 +625,7 @@ const TreeView: React.FC = () => {
 
     return (
         <div className="w-full h-screen flex flex-col">
-            <div className="h-[10vh] p-2 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
+            <div className="p-2 border-b border-gray-200 dark:border-gray-600 flex-shrink-0">
                 <div className="flex items-center justify-between mb-2 flex-col sm:flex-row gap-4">
                     <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
                         <div className="flex items-center gap-2 sm:gap-4 flex-wrap">
@@ -663,7 +672,7 @@ const TreeView: React.FC = () => {
                                     const moduleData = buildModulesWithDocuments.find(m => m.name === moduleName);
                                     return (
                                         <SelectItem key={moduleName} value={moduleName}>
-                                            {moduleName} ({moduleData?.children?.length || 0})
+                                            {moduleName} ({moduleData?.count || 0})
                                         </SelectItem>
                                     );
                                 })}

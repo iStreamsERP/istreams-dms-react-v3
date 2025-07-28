@@ -44,13 +44,12 @@ export const CategoryViewPage = () => {
     try {
       const payload = {
         NoOfDays: filterDays,
-        ForTheUser: `${
-          userData.isAdmin ||
+        ForTheUser: `${userData.isAdmin ||
           userViewRights === "Allowed" ||
           categoryList.length > 0
-            ? ""
-            : userData.userName
-        }`,
+          ? ""
+          : userData.userName
+          }`,
         FilterCond: buildFilterCond(),
       };
 
@@ -264,7 +263,7 @@ export const CategoryViewPage = () => {
         <p className="text-center text-sm">
           {" "}
           {categoryList.length === 0 &&
-          !(userData.isAdmin || userViewRights === "Allowed")
+            !(userData.isAdmin || userViewRights === "Allowed")
             ? "No categories assigned to you."
             : "No data found..."}
         </p>
@@ -278,7 +277,7 @@ export const CategoryViewPage = () => {
               className="hover:scale-[1.01] transition-transform"
             >
               <Card className="h-20 flex items-center px-4 py-1 rounded-xl shadow-sm hover:shadow-md transition">
-                <div className="flex items-center w-full gap-3">
+                <div className="flex items-center w-full gap-3 mt-3">
                   <div className="bg-blue-100 text-blue-600 p-1 rounded-md">
                     📁
                   </div>

@@ -121,7 +121,7 @@ export const DashboardPage = () => {
 
       {/* First row of cards */}
       <Card
-        className="col-span-1 md:col-span-1 lg:col-span-1"
+        className="col-span-1 md:col-span-1 lg:col-span-1 rounded-lg border border-gray-400 dark:border-gray-700"
         data-tour="document-distribution"
       >
         <CardHeader className="p-2">
@@ -135,7 +135,7 @@ export const DashboardPage = () => {
       </Card>
 
       <Card
-        className="col-span-1 md:col-span-1 lg:col-span-2"
+        className="col-span-1 md:col-span-1 lg:col-span-2 rounded-lg border border-gray-400 dark:border-gray-700"
         data-tour="module-performance"
       >
         <CardHeader className="p-2">
@@ -147,7 +147,7 @@ export const DashboardPage = () => {
       </Card>
 
       <Card
-        className="col-span-1 md:col-span-1 lg:col-span-2"
+        className="col-span-1 md:col-span-1 lg:col-span-2 rounded-lg border border-gray-400 dark:border-gray-700"
         data-tour="category-performance"
       >
         <CardHeader className="p-2">
@@ -159,7 +159,7 @@ export const DashboardPage = () => {
       </Card>
 
       <Card
-        className="col-span-1 md:col-span-1 lg:col-span-1"
+        className="col-span-1 md:col-span-1 lg:col-span-1 rounded-lg border border-gray-400 dark:border-gray-700"
         data-tour="channel-performance"
       >
         <CardHeader className="p-2">
@@ -172,7 +172,7 @@ export const DashboardPage = () => {
 
       {/* AI Insights */}
       <Card
-        className="col-span-1 md:col-span-1 lg:col-span-2"
+        className="col-span-1 md:col-span-1 lg:col-span-2 rounded-lg border border-gray-400 dark:border-gray-700"
         data-tour="ai-insights"
       >
         <CardHeader className="p-2">
@@ -184,7 +184,7 @@ export const DashboardPage = () => {
       </Card>
 
       <Card
-        className="col-span-1 md:col-span-1 lg:col-span-1"
+        className="col-span-1 md:col-span-1 lg:col-span-1 rounded-lg border border-gray-400 dark:border-gray-700"
         data-tour="documents-by-channel"
       >
         <CardHeader className="p-2">

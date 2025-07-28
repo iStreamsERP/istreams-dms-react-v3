@@ -28,8 +28,8 @@ function TeamProfileCard({ user }) {
 
   return (
     <Link to="/document-list" state={{ userName: displayTitle }}>
-      <Card className="col-span-2 md:col-span-2 lg:col-span-1">
-        <CardContent className="p-2">
+      <Card className="col-span-2 md:col-span-2 lg:col-span-1 rounded-lg border border-gray-400 dark:border-gray-700">
+        <CardContent className="p-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-start space-x-3 flex-shrink-0">
               <div className="w-8 h-8 overflow-hidden rounded-full ring-2 ring-green-500 flex-shrink-0">
@@ -94,7 +94,7 @@ function TeamProfileCard({ user }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 text-center text-sm text-gray-600 mb-4">
+          <div className="grid grid-cols-3 gap-4 text-center text-sm text-gray-600 mb-2">
             <div>
               <p>Total</p>
               <p className="font-bold text-lg text-gray-800">
@@ -113,7 +113,7 @@ function TeamProfileCard({ user }) {
             </div>
           </div>
 
-          <div className="w-full bg-gray-200 rounded-full h-1 mb-1">
+          <div className="w-full bg-gray-200 rounded-full h-1">
             <div
               className="h-1 rounded-full bg-green-500"
               style={{ width: `${progressPercent}%` }}

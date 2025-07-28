@@ -145,7 +145,7 @@ export const DocumentListPage = () => {
         <>
           <div className="flex flex-col md:flex-row justify-between items-end md:items-center gap-2">
             <div
-              className="w-full lg:w-1/2 rounded-lg border border-gray-400 dark:border-gray-700"
+              className="w-full lg:w-1/2"
               data-tour="time-range"
             >
               <GlobalSearchInput

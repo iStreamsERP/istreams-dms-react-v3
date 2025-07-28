@@ -16,7 +16,7 @@ const GlobalSearchInput = ({ value, onChange }) => {
   }, []);
 
   return (
-    <Input
+    <Input className="rounded-lg border border-gray-400 dark:border-gray-700"
       ref={inputRef}
       type="text"
       placeholder="Global Search... (Ctrl+K)"

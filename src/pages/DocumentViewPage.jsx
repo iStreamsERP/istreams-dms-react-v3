@@ -153,11 +153,10 @@ const DocumentCard = memo(
                 <div className="mb-3">
                   {isVerified ? (
                     <span
-                      className={`text-xs ${
-                        doc.DOCUMENT_STATUS === "Rejected"
-                          ? "text-red-500"
-                          : "text-gray-500"
-                      }`}
+                      className={`text-xs ${doc.DOCUMENT_STATUS === "Rejected"
+                        ? "text-red-500"
+                        : "text-gray-500"
+                        }`}
                     >
                       {doc.DOCUMENT_STATUS === "Rejected"
                         ? "Rejected by"
@@ -170,9 +169,8 @@ const DocumentCard = memo(
                   )}
                 </div>
                 <Button
-                  className={`btn btn-xs w-full ${
-                    canVerify ? "btn-success" : "btn-ghost btn-active"
-                  }`}
+                  className={`btn btn-xs w-full ${canVerify ? "btn-success" : "btn-ghost btn-active"
+                    }`}
                   onClick={canVerify ? handleVerifyClick : undefined}
                   disabled={!canVerify}
                 >
@@ -297,8 +295,8 @@ export const DocumentViewPage = () => {
     () => ({
       WhereCondition:
         userData.isAdmin ||
-        userViewRights === "Allowed" ||
-        categoryList.length > 0
+          userViewRights === "Allowed" ||
+          categoryList.length > 0
           ? ""
           : ` AND (USER_NAME = '${userData.userName}' OR ASSIGNED_USER = '${userData.userName}')`,
       Orderby: "REF_SEQ_NO DESC",
@@ -683,7 +681,7 @@ export const DocumentViewPage = () => {
     return (
       <div className="grid grid-cols-1 gap-4">
         <div className="relative">
-          <GlobalSearchInput value="" onChange={() => {}} disabled />
+          <GlobalSearchInput value="" onChange={() => { }} disabled />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
           {Array.from({ length: 6 }).map((_, i) => (
@@ -706,7 +704,7 @@ export const DocumentViewPage = () => {
     <>
       <div className="grid grid-cols-1 gap-4">
         {/* Search and status */}
-        <div className="relative">
+        <div className="relative w-full lg:w-1/4">
           <GlobalSearchInput
             value={globalFilter}
             onChange={setGlobalFilter}
