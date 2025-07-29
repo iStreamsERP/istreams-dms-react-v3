@@ -28,6 +28,7 @@ export const CategoryMasterPage = () => {
     DISPLAY_NAME: "",
     MODULE_NAME: "",
     SEARCH_TAGS: "",
+    PATH_FOR_LAN: "",
   });
   const [aiQuestions, setAIQuestions] = useState<AIQuestion[]>([]);
   const [searchTerm, setSearchTerm] = useState(""); // Added for search functionality
@@ -43,7 +44,8 @@ export const CategoryMasterPage = () => {
         category.CATEGORY_NAME?.toLowerCase().includes(lowerSearch) ||
         category.DISPLAY_NAME?.toLowerCase().includes(lowerSearch) ||
         category.MODULE_NAME?.toLowerCase().includes(lowerSearch) ||
-        category.SEARCH_TAGS?.toLowerCase().includes(lowerSearch)
+        category.SEARCH_TAGS?.toLowerCase().includes(lowerSearch) ||
+        category.PATH_FOR_LAN?.toLowerCase().includes(lowerSearch)
     );
   }, [categories, searchTerm]);
 
@@ -54,6 +56,7 @@ export const CategoryMasterPage = () => {
       DISPLAY_NAME: "",
       MODULE_NAME: "",
       SEARCH_TAGS: "",
+      PATH_FOR_LAN: "",
     });
     setAIQuestions([
       {
@@ -78,15 +81,15 @@ export const CategoryMasterPage = () => {
         aiQuestions.length
           ? aiQuestions
           : [
-              {
-                REF_SERIAL_NO: -1,
-                CATEGORY_NAME: fetchedCategory.CATEGORY_NAME,
-                QUESTION_FOR_AI: "",
-                REF_KEY: "",
-                IS_MANDATORY: "T",
-                QUERY_FOR_VALIDATION: "",
-              },
-            ]
+            {
+              REF_SERIAL_NO: -1,
+              CATEGORY_NAME: fetchedCategory.CATEGORY_NAME,
+              QUESTION_FOR_AI: "",
+              REF_KEY: "",
+              IS_MANDATORY: "T",
+              QUERY_FOR_VALIDATION: "",
+            },
+          ]
       );
       setIsDialogOpen(true);
     } catch (err) {

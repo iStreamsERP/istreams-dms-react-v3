@@ -3,6 +3,7 @@ export interface Category {
   DISPLAY_NAME: string;
   MODULE_NAME: string;
   SEARCH_TAGS: string;
+  PATH_FOR_LAN: string;
 }
 
 export interface AIQuestion {

@@ -217,7 +217,6 @@ const DocumentUploadModal = ({
       [fileKey]: 'view'
     }));
 
-
     try {
       const downloadUrl = `https://apps.istreams-erp.com:4440/api/megacloud/download?email=${encodeURIComponent(userData.userEmail)}&refNo=${encodeURIComponent(selectedDocs.REF_SEQ_NO)}&fileName=${selectedDocs.DOC_NAME}`;
 

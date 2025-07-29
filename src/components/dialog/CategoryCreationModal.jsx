@@ -138,9 +138,9 @@ export function CategoryCreationModal({ mode, selectedItem, onSuccess }) {
       setAiFormDataList(
         aiResponse?.length > 0
           ? aiResponse.map((item) => ({
-              ...item,
-              IS_MANDATORY: item.IS_MANDATORY || "T",
-            }))
+            ...item,
+            IS_MANDATORY: item.IS_MANDATORY || "T",
+          }))
           : [getInitialAiFormData()]
       );
 

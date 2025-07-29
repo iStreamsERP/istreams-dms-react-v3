@@ -49,8 +49,6 @@ export const convertServiceDate = (serviceDate) => {
   return `${year}-${month}-${day}`;
 };
 
-// utils/dateUtils.js
-
 export const convertServiceDatev1 = (dateString) => {
   if (!dateString || dateString === '0' || dateString === 'NULL' || dateString === '') {
     return 'No expiry';

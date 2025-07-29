@@ -227,7 +227,7 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
 
         const existingPermission = permissions.find(p => p.PERMISSION_USER_NAME === selectedUser);
         if (existingPermission) {
-            setError("This user already has permissions. Please edit the existing permission instead.");
+            setError("This user already has permissions.");
             return;
         }
 
@@ -406,7 +406,7 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
                                     onValueChange={setSelectedUser}
                                     disabled={loadingUsers}
                                 >
-                                    <SelectTrigger>
+                                    <SelectTrigger className="w-full">
                                         <SelectValue placeholder="Select user..." />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -533,10 +533,8 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
                                                                     permission.PERMISSION_VALID_TILL === 'Invalid Date' ? (
                                                                     <span className="text-gray-500">No expiry</span>
                                                                 ) : (
-                                                                    <span className={
-                                                                        new Date(permission.PERMISSION_VALID_TILL) < new Date() ?
-                                                                            'text-red-500' : 'text-green-500'
-                                                                    }>
+                                                                    <span className="text-red-500"
+                                                                    >
                                                                         {convertServiceDatev1(permission.PERMISSION_VALID_TILL)}
                                                                     </span>
                                                                 )}
