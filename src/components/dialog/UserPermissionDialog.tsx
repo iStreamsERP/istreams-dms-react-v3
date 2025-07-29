@@ -7,7 +7,7 @@ import { Trash2, Plus, User, Shield } from 'lucide-react';
 import { useAuth } from "@/contexts/AuthContext";
 import { callSoapService } from "@/api/callSoapService";
 import { convertDataModelToStringData } from '@/utils/dataModelConverter';
-import { convertServiceDate } from '@/utils/dateUtils';
+import { convertServiceDatev1 } from '@/utils/dateUtils';
 import { useToast } from '@/hooks/useToast';
 
 interface UserPermission {
@@ -149,14 +149,25 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
             }
 
             // Format dates for display
-            const mappedPermissions = permissionsData.map((perm, index) => {
+            const mappedPermissions = permissionsData.map((perm) => {
                 const user = users.find(u => u.USER_NAME === perm.PERMISSION_USER_NAME);
+
+                // Format dates safely
+                const formatDateField = (dateValue) => {
+                    try {
+                        if (!dateValue || dateValue === '0') return '';
+                        return dateValue.includes('T') ? dateValue.split('T')[0] : dateValue;
+                    } catch {
+                        return '';
+                    }
+                };
+
                 return {
-                    id: `existing_${perm.PERMISSION_USER_NAME}_${index}`,
+                    id: `existing_${perm.PERMISSION_USER_NAME}_${Date.now()}`,
                     PERMISSION_USER_NAME: perm.PERMISSION_USER_NAME,
                     PERMISSION_RIGHTS: perm.PERMISSION_RIGHTS,
-                    PERMISSION_VALID_TILL: formatDateForDisplay(perm.PERMISSION_VALID_TILL),
-                    ENT_DATE: formatDateForDisplay(perm.ENT_DATE),
+                    PERMISSION_VALID_TILL: formatDateField(perm.PERMISSION_VALID_TILL),
+                    ENT_DATE: formatDateField(perm.ENT_DATE),
                     displayName: user?.DISPLAY_NAME || perm.PERMISSION_USER_NAME,
                     isNew: false
                 };
@@ -188,11 +199,6 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
             return;
         }
 
-        // if (!validTill) {
-        //     setError("Please select a valid date");
-        //     return;
-        // }
-
         if (selectedPermission.length === 0) {
             setError("Please select at least one permission");
             return;
@@ -200,14 +206,20 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
 
         const user = users.find(u => u.USER_NAME === selectedUser);
 
-        // Combine permissions into a comma-separated string
-        const permissionsString = selectedPermission.join(',');
+        // Format the date properly
+        let formattedValidTill = '';
+        if (validTill) {
+            const date = new Date(validTill);
+            if (!isNaN(date.getTime())) {
+                formattedValidTill = date.toISOString().split('T')[0];
+            }
+        }
 
         const newPermission: UserPermission = {
             id: `new_${Date.now()}`,
             PERMISSION_USER_NAME: selectedUser,
-            PERMISSION_RIGHTS: permissionsString,
-            PERMISSION_VALID_TILL: validTill,
+            PERMISSION_RIGHTS: selectedPermission.join(','),
+            PERMISSION_VALID_TILL: formattedValidTill, // Will be empty if no date selected
             ENT_DATE: new Date().toISOString().split('T')[0],
             displayName: user?.DISPLAY_NAME || selectedUser,
             isNew: true
@@ -223,7 +235,7 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
         setError('');
 
         setSelectedUser('');
-        setSelectedPermission(['R']); // Reset to Read by default
+        setSelectedPermission(['R']);
         setValidTill('');
     };
 
@@ -305,7 +317,7 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
                     REF_SEQ_NO: document.REF_SEQ_NO,
                     PERMISSION_USER_NAME: permission.PERMISSION_USER_NAME,
                     PERMISSION_RIGHTS: permission.PERMISSION_RIGHTS,
-                    PERMISSION_VALID_TILL: permission.PERMISSION_VALID_TILL,
+                    PERMISSION_VALID_TILL: permission.PERMISSION_VALID_TILL || null,
                     USER_NAME: userData.userName,
                     ENT_DATE: new Date().toISOString().split('T')[0]
                 };
@@ -516,13 +528,23 @@ const UserPermissionsDialog: React.FC<UserPermissionsDialogProps> = ({
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="w-[20%]">
-                                                            <div className="flex items-center gap-2 text-red-500">
-                                                                {convertServiceDate(permission.PERMISSION_VALID_TILL)}
+                                                            <div className="flex items-center gap-2">
+                                                                {!permission.PERMISSION_VALID_TILL ||
+                                                                    permission.PERMISSION_VALID_TILL === 'Invalid Date' ? (
+                                                                    <span className="text-gray-500">No expiry</span>
+                                                                ) : (
+                                                                    <span className={
+                                                                        new Date(permission.PERMISSION_VALID_TILL) < new Date() ?
+                                                                            'text-red-500' : 'text-green-500'
+                                                                    }>
+                                                                        {convertServiceDatev1(permission.PERMISSION_VALID_TILL)}
+                                                                    </span>
+                                                                )}
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="w-[20%]">
                                                             <div className="flex items-center gap-2 text-green-500">
-                                                                {convertServiceDate(permission.ENT_DATE)}
+                                                                {convertServiceDatev1(permission.ENT_DATE)}
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="w-[5%] sticky right-0 bg-background z-10">

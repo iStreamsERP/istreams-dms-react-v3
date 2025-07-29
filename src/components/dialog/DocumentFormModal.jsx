@@ -197,8 +197,8 @@ const DocumentFormModal = ({
           REQUIRED: false,
           VALUE:
             !selectedDocument ||
-            selectedDocument.REF_SEQ_NO === undefined ||
-            selectedDocument.REF_SEQ_NO === -1
+              selectedDocument.REF_SEQ_NO === undefined ||
+              selectedDocument.REF_SEQ_NO === -1
               ? ""
               : item.REF_VALUE || "",
         }));
@@ -579,7 +579,7 @@ const DocumentFormModal = ({
                         </option>
                         <optgroup label="Categories" className="font-semibold">
                           {Array.isArray(categoryList) &&
-                          categoryList.length === 0 ? (
+                            categoryList.length === 0 ? (
                             <option value="" disabled>
                               No categories assigned for you
                             </option>
