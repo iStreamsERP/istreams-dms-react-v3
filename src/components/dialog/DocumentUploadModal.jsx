@@ -442,7 +442,7 @@ const DocumentUploadModal = ({
           EXPIRY_DATE: file.EXPIRY_DATE || "",
           // DOC_DATA: base64Data,
           DOC_NAME: file.name,
-          // DOC_EXT: file.name.split(".").pop(),
+          //DOC_EXT: file.name.split(".").pop(),
           FILE_PATH: "",
           IsPrimaryDocument: file.isPrimaryDocument,
         };
@@ -615,7 +615,7 @@ const DocumentUploadModal = ({
                                 </h5>
                                 <div className="text-xs mt-1 flex items-center gap-2">
                                   <span className="text-gray-500 dark:text-gray-400">
-                                    {docExtension?.DOC_EXT?.toUpperCase() || 'Unknown'}
+                                    {docExtension?.toUpperCase() || 'Unknown'}
                                   </span>
                                   {doc.IS_PRIMARY_DOCUMENT === "T" && (
                                     <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
