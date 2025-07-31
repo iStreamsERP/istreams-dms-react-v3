@@ -48,3 +48,49 @@ export const convertServiceDate = (serviceDate) => {
   const day = ("0" + date.getDate()).slice(-2);
   return `${year}-${month}-${day}`;
 };
+
+export const convertServiceDatev1 = (dateString) => {
+  if (!dateString || dateString === '0' || dateString === 'NULL' || dateString === '') {
+    return 'No expiry';
+  }
+
+  try {
+    // Handle empty or invalid dates
+    if (dateString === 'Invalid Date' || dateString.includes('Invalid')) {
+      return 'No expiry';
+    }
+
+    // Handle SOAP service format (/Date(timestamp)/)
+    if (typeof dateString === 'string' && dateString.startsWith('/Date(')) {
+      const timestamp = parseInt(dateString.replace(/\/Date\(|\)\//g, ''));
+      if (!isNaN(timestamp)) {
+        const date = new Date(timestamp);
+        return formatDate(date);
+      }
+    }
+
+    // Handle ISO strings and other formats
+    const date = new Date(dateString);
+    if (!isNaN(date.getTime())) {
+      return formatDate(date);
+    }
+
+    // Handle YYYY-MM-DD format
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+      const [year, month, day] = dateString.split('-');
+      return `${day}-${month}-${year}`;
+    }
+
+    return 'No expiry';
+  } catch (e) {
+    console.error("Date conversion error:", e);
+    return 'No expiry';
+  }
+};
+
+const formatDate = (date) => {
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}-${month}-${year}`;
+};

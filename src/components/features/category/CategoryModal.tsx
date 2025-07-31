@@ -15,7 +15,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Plus, X } from "lucide-react";
 import { useState } from "react";
-import { useToast } from "@/hooks/useToast";
 import type { AIQuestion, Category, Module } from "@/types";
 
 interface CategoryModalProps {
@@ -35,8 +34,13 @@ export function CategoryModal({
   onSave,
   isSaving,
 }: CategoryModalProps) {
-  const { toast } = useToast();
-  const [formData, setFormData] = useState<Category>(initialCategory);
+
+  // Ensure PATH_FOR_LAN has a default value
+  const [formData, setFormData] = useState<Category>({
+    ...initialCategory,
+    PATH_FOR_LAN: initialCategory.PATH_FOR_LAN || `${initialCategory.CATEGORY_NAME || ""}/`
+  });
+
   const [aiFormDataList, setAiFormDataList] =
     useState<AIQuestion[]>(initialAIQuestions);
   const [nextTempId, setNextTempId] = useState(
@@ -49,13 +53,46 @@ export function CategoryModal({
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
-    const sanitizedValue =
-      name === "SEARCH_TAGS" ? value : value.replace(/[^a-zA-Z0-9\s_]/g, "");
-    setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+
+    if (name === "SEARCH_TAGS") {
+      setFormData((prev) => ({ ...prev, [name]: value }));
+
+    } else if (name === "CATEGORY_NAME") {
+      // ✅ Allow spaces in category name
+      const sanitizedValue = value.replace(/[^a-zA-Z0-9 ]/g, "");
+
+      const subPath = getSubfolderPath();
+
+      setFormData((prev) => ({
+        ...prev,
+        [name]: sanitizedValue,
+        PATH_FOR_LAN: subPath ? `${sanitizedValue}/${subPath}` : sanitizedValue,
+      }));
+    } else {
+      const sanitizedValue = value.replace(/[^a-zA-Z0-9\s_]/g, "");
+      setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+    }
   };
 
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const formatFinalPath = (base: string, subPath: string): string | null => {
+    if (!base && !subPath) return null;
+
+    let fullPath = "";
+
+    if (base && subPath) {
+      fullPath = `${base}/${subPath}`;
+    } else if (!base && subPath) {
+      fullPath = subPath;
+    } else if (base && !subPath) {
+      return null; // only category name → save null
+    }
+
+    // Ensure exactly one trailing slash
+    return fullPath.replace(/\/+$/, "") + "/";
   };
 
   const handleAiInputChange = (
@@ -82,7 +119,7 @@ export function CategoryModal({
       ...aiFormDataList,
       {
         REF_SERIAL_NO: nextTempId,
-        CATEGORY_NAME: formData.CATEGORY_NAME,
+        CATEGORY_NAME: formData.CATEGORY_NAME || "",
         QUESTION_FOR_AI: "",
         REF_KEY: "",
         IS_MANDATORY: "T",
@@ -101,15 +138,25 @@ export function CategoryModal({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.CATEGORY_NAME.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Category Name is required",
-        variant: "destructive",
-      });
-      return;
-    }
-    onSave(formData, aiFormDataList);
+
+    const base = getBaseCategoryName();
+    const subPath = getSubfolderPath();
+
+    const finalPath = formatFinalPath(base, subPath);
+
+    onSave({ ...formData, PATH_FOR_LAN: finalPath }, aiFormDataList);
+  };
+
+  // Helper function to get subfolder path safely
+  const getBaseCategoryName = () => {
+    return (formData.CATEGORY_NAME || "").replace(/[^a-zA-Z0-9 ]/g, "");
+  };
+
+  // Get subfolder path (everything after first slash)
+  const getSubfolderPath = () => {
+    if (!formData.PATH_FOR_LAN) return "";
+    const parts = formData.PATH_FOR_LAN.split('/');
+    return parts.slice(1).join('/');
   };
 
   return (
@@ -130,7 +177,7 @@ export function CategoryModal({
             <Input
               id="CATEGORY_NAME"
               name="CATEGORY_NAME"
-              value={formData.CATEGORY_NAME}
+              value={formData.CATEGORY_NAME || ""}
               onChange={handleInputChange}
               required
             />
@@ -140,7 +187,7 @@ export function CategoryModal({
             <Input
               id="DISPLAY_NAME"
               name="DISPLAY_NAME"
-              value={formData.DISPLAY_NAME}
+              value={formData.DISPLAY_NAME || ""}
               onChange={handleInputChange}
               required
             />
@@ -148,7 +195,7 @@ export function CategoryModal({
           <div className="space-y-1">
             <Label htmlFor="MODULE_NAME">Module Name *</Label>
             <Select
-              value={formData.MODULE_NAME}
+              value={formData.MODULE_NAME || ""}
               onValueChange={(value) =>
                 handleSelectChange("MODULE_NAME", value)
               }
@@ -172,11 +219,66 @@ export function CategoryModal({
             </Select>
           </div>
           <div className="space-y-1">
+            <Label>Folder Path</Label>
+            <div className="flex items-center gap-2">
+              {/* Disabled base path - shows but can't edit */}
+              <Input
+                value={formData.CATEGORY_NAME}
+                disabled
+                className="w-full"
+              />
+
+              {/* Visible slash separator */}
+              <span className="text-gray-500">/</span>
+
+              {/* Editable subfolder path */}
+              <Input
+                value={formData.PATH_FOR_LAN.split("/").slice(1).join("/")}
+                onChange={(e) => {
+                  let value = e.target.value;
+
+                  // ✅ Prevent `/` as the first character
+                  if (value.startsWith("/")) {
+                    value = value.replace(/^\/+/, ""); // remove leading slashes
+                  }
+
+                  // ✅ Allow only letters, numbers, slash
+                  const subfolder = value.replace(/[^a-zA-Z0-9/]/g, "");
+                  const base = formData.CATEGORY_NAME; // allow spaces in base folder
+
+                  let newPath = "";
+                  if (base && subfolder) {
+                    newPath = `${base}/${subfolder}`;
+                  } else if (base && !subfolder) {
+                    newPath = base;
+                  } else {
+                    newPath = subfolder;
+                  }
+
+                  setFormData((prev) => ({
+                    ...prev,
+                    PATH_FOR_LAN: newPath,
+                  }));
+                }}
+                className="w-full"
+                placeholder="subfolder (e.g. def/ghi)"
+              />
+            </div>
+
+            {/* Save format preview */}
+            <p className="text-xs text-muted-foreground">
+              {formData.PATH_FOR_LAN
+                ? `Will save: ${formData.PATH_FOR_LAN}${formData.PATH_FOR_LAN.includes('/') ? '' : '/'}`
+                : `Will save: (empty)`
+              }
+            </p>
+          </div>
+          <div className="space-y-1">
             <Label htmlFor="SEARCH_TAGS">Search Tags</Label>
             <Textarea
               id="SEARCH_TAGS"
               name="SEARCH_TAGS"
-              value={formData.SEARCH_TAGS}
+              value={formData.SEARCH_TAGS || ""}
               onChange={handleInputChange}
               placeholder="Enter comma-separated search tags"
             />
@@ -234,7 +336,7 @@ export function CategoryModal({
                     <Input
                       id={`refkey-${index}`}
                       name="REF_KEY"
-                      value={aiItem.REF_KEY}
+                      value={aiItem.REF_KEY || ""}
                       onChange={(e) => handleAiInputChange(index, e)}
                       placeholder="e.g. Invoice Number"
                     />
@@ -244,7 +346,7 @@ export function CategoryModal({
                     <Input
                       id={`question-${index}`}
                       name="QUESTION_FOR_AI"
-                      value={aiItem.QUESTION_FOR_AI}
+                      value={aiItem.QUESTION_FOR_AI || ""}
                       onChange={(e) => handleAiInputChange(index, e)}
                       placeholder="e.g. What is the invoice number?"
                       required

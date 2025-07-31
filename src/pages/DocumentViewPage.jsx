@@ -20,7 +20,7 @@ import {
   useTransition,
 } from "react";
 import { useLocation } from "react-router-dom";
-import DocumentFormModal from "../components/dialog/DocumentFormModal";
+import DocumentPreviewModal from "../components/dialog/DocumentPreviewModal";
 import TaskForm from "../components/TaskForm";
 import { useAuth } from "../contexts/AuthContext";
 import { formatDateTime } from "../utils/dateUtils";
@@ -810,7 +810,7 @@ export const DocumentViewPage = () => {
         onTaskCreated={handleTaskCreated}
       />
 
-      <DocumentFormModal
+      <DocumentPreviewModal
         formModalRef={formModalRef}
         selectedDocument={selectedDocument}
         docMode={docFormMode}

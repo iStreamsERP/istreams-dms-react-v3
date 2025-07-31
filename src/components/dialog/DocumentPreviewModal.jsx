@@ -8,17 +8,20 @@ import { getFileIcon } from "@/utils/getFileIcon";
 import {
   CalendarDays,
   CircleCheckBig,
-  Clock3,
-  FileQuestion,
+  Download,
+  Eye,
   FileText,
   Folder,
   Hash,
   Link,
+  ListOrdered,
   Loader,
   Loader2,
   LocateFixed,
   MessageSquare,
+  Target,
   UserRound,
+  Verified,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -28,8 +31,9 @@ import DocumentPreview from "../DocumentPreview";
 import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
 import RejectModal from "./RejectModal";
+import axios from "axios";
 
-const DocumentFormModal = ({
+const DocumentPreviewModal = ({
   formModalRef,
   selectedDocument,
   docMode,
@@ -69,6 +73,7 @@ const DocumentFormModal = ({
   const [dynamicFields, setDynamicFields] = useState([]);
   const [isLoadingDynamicFields, setIsLoadingDynamicFields] = useState(false);
   const [currentPreviewUrl, setCurrentPreviewUrl] = useState(null);
+  const [fileLoadingStates, setFileLoadingStates] = useState();
 
   // Set read-only based on document mode
   useEffect(() => {
@@ -120,6 +125,8 @@ const DocumentFormModal = ({
       });
     }
   };
+
+  console.log(selectedDocument);
 
   // Fetch existing documents
   useEffect(() => {
@@ -261,43 +268,76 @@ const DocumentFormModal = ({
   };
 
   const handleViewDocs = async (selectedDocs) => {
+    if (!userData?.userEmail || !selectedDocs.REF_SEQ_NO || !selectedDocs.DOC_NAME) return;
+
+    const fileKey = `${selectedDocs.REF_SEQ_NO}-${selectedDocs.SERIAL_NO}`;
+    setFileLoadingStates(prev => ({
+      ...prev,
+      [fileKey]: 'view'
+    }));
+
     try {
-      const payload = {
-        DataModelName: "SYNM_DMS_DETAILS",
-        WhereCondition: `REF_SEQ_NO = ${selectedDocs.REF_SEQ_NO} AND SERIAL_NO = ${selectedDocs.SERIAL_NO}`,
-        Orderby: "",
-      };
-      const response = await callSoapService(
-        userData.clientURL,
-        "DataModel_GetData",
-        payload
-      );
-      if (!response?.length) {
-        throw new Error("No documents found.");
-      }
-      const doc = response[0];
-      if (Array.isArray(doc.DOC_DATA)) {
-        const blob = new Blob([new Uint8Array(doc.DOC_DATA)], {
-          type: "application/octet-stream",
-        });
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download =
-          doc.DOC_NAME || `document_${selectedDocs.REF_SEQ_NO}.bin`;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      console.error("Error downloading documents:", err);
-      toast({
-        title: "Error",
-        description: "Failed to download document.",
+      const downloadUrl = `https://apps.istreams-erp.com:4440/api/megacloud/download?email=${encodeURIComponent(userData.userEmail)}&refNo=${encodeURIComponent(selectedDocs.REF_SEQ_NO)}&fileName=${selectedDocs.DOC_NAME}`;
+      const response = await axios.get(downloadUrl, {
+        responseType: 'blob',
       });
+
+      const blob = new Blob([response.data], {
+        type: response.headers['content-type'] || 'application/octet-stream',
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', selectedDocs.DOC_NAME || `document_${selectedDocs.REF_SEQ_NO}`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Error downloading document:", err);
+      alert("Failed to download the document. Please try again.");
     }
   };
+
+  // const handleViewDocs = async (selectedDocs) => {
+  //   try {
+  //     const payload = {
+  //       DataModelName: "SYNM_DMS_DETAILS",
+  //       WhereCondition: `REF_SEQ_NO = ${selectedDocs.REF_SEQ_NO} AND SERIAL_NO = ${selectedDocs.SERIAL_NO}`,
+  //       Orderby: "",
+  //     };
+  //     const response = await callSoapService(
+  //       userData.clientURL,
+  //       "DataModel_GetData",
+  //       payload
+  //     );
+  //     if (!response?.length) {
+  //       throw new Error("No documents found.");
+  //     }
+  //     const doc = response[0];
+  //     if (Array.isArray(doc.DOC_DATA)) {
+  //       const blob = new Blob([new Uint8Array(doc.DOC_DATA)], {
+  //         type: "application/octet-stream",
+  //       });
+  //       const url = window.URL.createObjectURL(blob);
+  //       const link = document.createElement("a");
+  //       link.href = url;
+  //       link.download =
+  //         doc.DOC_NAME || `document_${selectedDocs.REF_SEQ_NO}.bin`;
+  //       document.body.appendChild(link);
+  //       link.click();
+  //       link.remove();
+  //       window.URL.revokeObjectURL(url);
+  //     }
+  //   } catch (err) {
+  //     console.error("Error downloading documents:", err);
+  //     toast({
+  //       title: "Error",
+  //       description: "Failed to download document.",
+  //     });
+  //   }
+  // };
 
   const handlePreview = useCallback((doc) => {
     const byteArray = new Uint8Array(doc.DOC_DATA);
@@ -388,20 +428,15 @@ const DocumentFormModal = ({
         "SYNM_DMS_MASTER",
         formData
       );
-
       const payload = {
         UserName: userData.userEmail,
         DModelData: convertedDataModel,
       };
-
       const response = await callSoapService(
         userData.clientURL,
         "DataModel_SaveData",
         payload
       );
-
-      console.log(response);
-
       toast({
         title: "Success",
         description: response,
@@ -438,8 +473,8 @@ const DocumentFormModal = ({
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-sm font-semibold">
                 Reference ID:
-                <span className="ml-2 px-1 py-0 bg-blue-100 text-blue-800 rounded-full text-xs">
-                  {formData.REF_SEQ_NO === -1 ? "(New)" : formData.REF_SEQ_NO}
+                <span className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 rounded-full text-xs">
+                  {formData.REF_SEQ_NO || "N/A"}
                 </span>
               </h3>
               <button
@@ -456,297 +491,151 @@ const DocumentFormModal = ({
               id="document-form"
               name="document-form"
             >
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-                {/* Left Side - Document Form and Others Details */}
-                <div className="col-span-3 lg:col-span-2">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    {/* Document Number */}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {/* Left Column - Document Details */}
+                <div className="lg:col-span-2 space-y-4">
+                  {/* Top section: Document Info in 4-left, 4-right layout */}
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {/* Left side - 4 items */}
+                    <div className="space-y-2">
+                      {/* Document Ref No */}
+                      <div className="flex items-center gap-2">
                         <Hash className="h-4 w-4 text-gray-600" />
-                        <Label htmlFor="DOCUMENT_NO">Document Ref No</Label>
-                        <div className="text-gray-400 cursor-help">
-                          <FileQuestion className="w-4 h-4" />
-                        </div>
+                        <span className="text-sm">Document Ref No:</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.DOCUMENT_NO || "N/A"}
+                        </span>
                       </div>
-                      <Input
-                        type="text"
-                        name="DOCUMENT_NO"
-                        id="DOCUMENT_NO"
-                        placeholder="Enter document ref no"
-                        value={formData.DOCUMENT_NO}
-                        onChange={handleChange}
-                        readOnly={isReadOnly}
-                      />
-                      {errors.DOCUMENT_NO && (
-                        <p className="text-red-500 text-sm">
-                          {errors.DOCUMENT_NO}
-                        </p>
-                      )}
-                    </div>
-                    {/* Document Name */}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
+
+                      {/* Document Name */}
+                      <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4 text-gray-600" />
-                        <Label htmlFor="DOCUMENT_DESCRIPTION">
-                          Document Name
-                        </Label>
+                        <span className="text-sm">Document Name:</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.DOCUMENT_DESCRIPTION || "N/A"}
+                        </span>
                       </div>
-                      <Input
-                        type="text"
-                        name="DOCUMENT_DESCRIPTION"
-                        id="DOCUMENT_DESCRIPTION"
-                        placeholder="Enter document name"
-                        value={formData.DOCUMENT_DESCRIPTION}
-                        onChange={handleChange}
-                        readOnly={isReadOnly}
-                      />
-                      {errors.DOCUMENT_DESCRIPTION && (
-                        <p className="text-red-500 text-sm">
-                          {errors.DOCUMENT_DESCRIPTION}
-                        </p>
-                      )}
-                    </div>
-                    {/* Related To */}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
+
+                      {/* Related To */}
+                      <div className="flex items-center gap-2">
                         <Link className="h-4 w-4 text-gray-600" />
-                        <Label htmlFor="DOC_RELATED_TO">Related To</Label>
+                        <span className="text-sm">Related To:</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.DOC_RELATED_TO || "N/A"}
+                        </span>
                       </div>
-                      <select
-                        name="DOC_RELATED_TO"
-                        value={formData.DOC_RELATED_TO}
-                        onChange={handleChange}
-                        disabled={isReadOnly}
-                        className="w-full rounded-md border border-gray-300 p-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400 dark:focus:border-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:disabled:text-gray-400"
-                      >
-                        <option
-                          value=""
-                          disabled
-                          className="text-gray-400 dark:text-gray-500"
-                        >
-                          Select related to
-                        </option>
-                        <optgroup label="Related To" className="font-semibold">
-                          <option value="HRMS & Payroll">HRMS & Payroll</option>
-                          <option value="Material Management">
-                            Material Management
-                          </option>
-                          <option value="Accounting">Accounting</option>
-                          <option value="Sales (POS)">Sales (POS)</option>
-                          <option value="Estimation">Estimation</option>
-                          <option value="Projects">Projects</option>
-                          <option value="Job Costing">Job Costing</option>
-                          <option value="Production">Production</option>
-                          <option value="Packing Delivery">
-                            Packing Delivery
-                          </option>
-                          <option value="Task Management">
-                            Task Management
-                          </option>
-                          <option value="Documents & Communications">
-                            Documents & Communications
-                          </option>
-                          <option value="Product Administration">
-                            Product Administration
-                          </option>
-                        </optgroup>
-                      </select>
-                      {errors.DOC_RELATED_TO && (
-                        <p className="text-red-500 text-sm">
-                          {errors.DOC_RELATED_TO}
-                        </p>
-                      )}
-                    </div>
-                    {/* Related Category */}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
+
+                      {/* Category */}
+                      <div className="flex items-center gap-2">
                         <Folder className="h-4 w-4 text-gray-600" />
-                        <Label htmlFor="DOC_RELATED_CATEGORY">
-                          Related Category
-                        </Label>
+                        <span className="text-sm">Category:</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.DOC_RELATED_CATEGORY || "N/A"}
+                        </span>
                       </div>
-                      <select
-                        name="DOC_RELATED_CATEGORY"
-                        value={formData.DOC_RELATED_CATEGORY}
-                        onChange={handleCategoryChange}
-                        disabled={isReadOnly}
-                        className="w-full rounded-md border border-gray-300 p-1 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 dark:focus:ring-blue-400 dark:focus:border-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed dark:disabled:text-gray-400"
-                      >
-                        <option
-                          value=""
-                          disabled
-                          className="text-gray-400 dark:text-gray-500"
-                        >
-                          Select category
-                        </option>
-                        <optgroup label="Categories" className="font-semibold">
-                          {Array.isArray(categoryList) &&
-                            categoryList.length === 0 ? (
-                            <option value="" disabled>
-                              No categories assigned for you
-                            </option>
-                          ) : (
-                            categoryList.map((category, index) =>
-                              category?.CATEGORY_NAME ? (
-                                <option
-                                  key={`${category.CATEGORY_NAME}-${index}`}
-                                  value={category.CATEGORY_NAME}
-                                >
-                                  {category.CATEGORY_NAME}
-                                </option>
-                              ) : null
-                            )
-                          )}
-                        </optgroup>
-                      </select>
-                      {errors.DOC_RELATED_CATEGORY && (
-                        <p className="text-red-500 text-sm">
-                          {errors.DOC_RELATED_CATEGORY}
-                        </p>
-                      )}
                     </div>
-                    {/* Expiry Date */}
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
+
+                    {/* Right side - 4 items */}
+                    <div className="space-y-2">
+                      {/* Expiry Date */}
+                      <div className="flex items-center gap-2">
                         <CalendarDays className="h-4 w-4 text-gray-600" />
-                        <Label htmlFor="EXPIRY_DATE">Expiry Date</Label>
+                        <span className="text-sm">Expiry Date:</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.EXPIRY_DATE ? convertServiceDate(selectedDocument.EXPIRY_DATE) : "N/A"}
+                        </span>
                       </div>
-                      <Input
-                        type="date"
-                        name="EXPIRY_DATE"
-                        id="EXPIRY_DATE"
-                        value={formData.EXPIRY_DATE}
-                        onChange={handleChange}
-                        className="w-full px-3 py-2 border rounded focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        readOnly={isReadOnly}
-                      />
-                    </div>
-                    {/* Document Reference For */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
+
+                      {/* Document Reference For */}
+                      <div className="flex items-center gap-2">
                         <LocateFixed className="h-4 w-4 text-gray-600" />
-                        <Label htmlFor="DOC_REF_VALUE">
-                          Document Reference For
-                        </Label>
+                        <span className="text-sm">Document Reference For:</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.DOC_REF_VALUE || "N/A"}
+                        </span>
                       </div>
-                      <Input
-                        type="text"
-                        name="DOC_REF_VALUE"
-                        id="DOC_REF_VALUE"
-                        placeholder="ex: emp no, project no etc."
-                        value={formData.DOC_REF_VALUE}
-                        onChange={handleChange}
-                        readOnly={isReadOnly}
-                      />
-                    </div>
-                    {/* Document Tags */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
+
+                      {/* Document Tags */}
+                      <div className="flex items-center gap-2">
                         <LocateFixed className="h-4 w-4 text-gray-600" />
-                        <Label htmlFor="DOC_TAGS">
-                          Document Tags For Filter
-                        </Label>
+                        <span className="text-sm">Document Tags For Filter:</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.DOC_TAGS || "N/A"}
+                        </span>
                       </div>
-                      <Input
-                        type="text"
-                        name="DOC_TAGS"
-                        id="DOC_TAGS"
-                        placeholder="Enter docs ref no"
-                        value={formData.DOC_TAGS}
-                        onChange={handleChange}
-                        readOnly={isReadOnly}
-                      />
-                    </div>
-                    {/* Remarks */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-sm">
-                        <MessageSquare className="h-4 w-4 text-gray-600" />
-                        <Label htmlFor="COMMENTS">Remarks</Label>
-                      </div>
-                      <Textarea
-                        name="COMMENTS"
-                        id="COMMENTS"
-                        placeholder="Add remarks"
-                        value={formData.COMMENTS}
-                        onChange={handleChange}
-                        readOnly={isReadOnly}
-                      />
-                    </div>
-                    {/* Others Details Section Moved to Left Side */}
-                    <div className="col-span-2 space-y-1 bg-slate-200 rounded-lg p-2">
-                      <h2 className="text-sm font-medium mb-2">
-                        Others Details:
-                      </h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div className="flex items-center justify-between gap-3 w-full">
-                          <div className="flex items-center gap-1 text-gray-500">
-                            <UserRound className="h-4 w-4" />
-                            <label className="text-sm">Uploader Name</label>
-                          </div>
-                          <p className="text-sm font-medium">
-                            {formData.REF_SEQ_NO === -1
-                              ? userData.userName
-                              : selectedDocument?.USER_NAME}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 w-full">
-                          <div className="flex items-center gap-1 text-gray-500">
-                            <LocateFixed className="h-4 w-4" />
-                            <label className="text-sm">
-                              Document Received From
-                            </label>
-                          </div>
-                          <p className="text-sm font-medium">
-                            {formData.DOC_SOURCE_FROM}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 w-full">
-                          <div className="flex items-center gap-1 text-gray-500">
-                            <LocateFixed className="h-4 w-4" />
-                            <label className="text-sm">Verified by</label>
-                          </div>
-                          <p className="text-sm font-medium">
-                            {formData.VERIFIED_BY}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 w-full">
-                          <div className="flex items-center gap-1 text-gray-500">
-                            <Clock3 className="h-4 w-4" />
-                            <label className="text-sm">Verified date</label>
-                          </div>
-                          <p className="text-sm font-medium">
-                            {convertServiceDate(formData.VERIFIED_DATE)}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 w-full">
-                          <div className="flex items-center gap-1 text-gray-500">
-                            <LocateFixed className="h-4 w-4" />
-                            <label className="text-sm">Reference Task ID</label>
-                          </div>
-                          <p className="text-sm font-medium">
-                            {formData.REF_TASK_ID}
-                          </p>
-                        </div>
-                        <div className="flex items-center justify-between gap-3 w-full">
-                          <div className="flex items-center gap-1 text-gray-500">
-                            <Loader className="h-4 w-4" />
-                            <label className="text-sm whitespace-nowrap">
-                              Document Status
-                            </label>
-                          </div>
-                          {formData.DOCUMENT_STATUS && (
-                            <p
-                              className="text-xs font-medium truncate w-full whitespace-nowrap"
-                              title={formData.DOCUMENT_STATUS}
-                            >
-                              {formData.DOCUMENT_STATUS}
-                            </p>
-                          )}
-                        </div>
+
+                      {/* Remarks */}
+                      <div className="flex items-center gap-2">
+                        <LocateFixed className="h-4 w-4 text-gray-600" />
+                        <span className="text-sm">Remarks:</span>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.COMMENTS || "N/A"}
+                        </span>
                       </div>
                     </div>
                   </div>
+
+                  {/* Other Details Section - Bottom with sm:grid-cols-1 */}
+                  <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-2">
+                    <h4 className="text-sm font-medium mb-3">Other Details</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <UserRound className="h-4 w-4" />
+                          <span className="text-sm">Uploader Name:</span>
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400 dark:text-gray-200">
+                          {formData.USER_NAME || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <LocateFixed className="h-4 w-4" />
+                          <span className="text-sm">Source:</span>
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.DOC_SOURCE_FROM || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Verified className="h-4 w-4" />
+                          <span className="text-sm">Verified by:</span>
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.VERIFIED_BY || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CalendarDays className="h-4 w-4" />
+                          <span className="text-sm">Verified date:</span>
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.VERIFIED_DATE ? convertServiceDate(selectedDocument.VERIFIED_DATE) : "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <ListOrdered className="h-4 w-4" />
+                          <span className="text-sm">Task ID:</span>
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.REF_TASK_ID || "N/A"}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Target className="h-4 w-4" />
+                          <span className="text-sm">Status:</span>
+                        </div>
+                        <span className="text-sm text-gray-600 dark:text-gray-400">
+                          {formData.DOCUMENT_STATUS || "N/A"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
                   {!docMode && (
                     <div className="mt-4 flex justify-end">
                       <Button type="submit" disabled={isSubmitting}>
@@ -849,19 +738,20 @@ const DocumentFormModal = ({
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
-                                <Button
-                                  variant="outline"
+                                <button
                                   onClick={() => handlePreview(doc)}
-                                  type="button"
+                                  className="p-1 text-gray-500 hover:text-blue-600"
+                                  title="Preview"
                                 >
-                                  Preview
-                                </Button>
-                                <Button
+                                  <Eye className="h-4 w-4" />
+                                </button>
+                                <button
                                   onClick={() => handleViewDocs(doc)}
-                                  type="button"
+                                  className="p-1 text-gray-500 hover:text-green-600"
+                                  title="Download"
                                 >
-                                  Download
-                                </Button>
+                                  <Download className="h-4 w-4" />
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -910,4 +800,4 @@ const DocumentFormModal = ({
   );
 };
 
-export default DocumentFormModal;
+export default DocumentPreviewModal;
