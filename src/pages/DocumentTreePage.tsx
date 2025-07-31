@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import AccessDenied from "@/components/AccessDenied";
 import { BarLoader } from "react-spinners";
 import { usePermissions } from "@/hooks/usePermissions";
-import TreeView from "@/components/TreeView";
+import TreeView1 from "@/components/TreeView1";
 import { useToast } from "@/hooks/useToast";
 
 export const DocumentTreePage = () => {
@@ -41,7 +41,7 @@ export const DocumentTreePage = () => {
         <AccessDenied />
       ) : (
         <>
-          <TreeView />
+          <TreeView1 />
         </>
       )}
     </div>

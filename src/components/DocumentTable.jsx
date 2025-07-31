@@ -369,7 +369,7 @@ const DocumentTable = ({
 
           // Define a color map for statuses
           const statusColorMap = {
-            ACCEPTED: "text-green-600",
+            Verified: "text-green-600",
             Pending: "text-yellow-600",
             Rejected: "text-red-600",
             Inprogress: "text-blue-600",

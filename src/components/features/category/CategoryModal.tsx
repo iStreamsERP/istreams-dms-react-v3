@@ -179,7 +179,7 @@ export function CategoryModal({
               name="CATEGORY_NAME"
               value={formData.CATEGORY_NAME || ""}
               onChange={handleInputChange}
-              required
+              required disabled={mode === "edit"}
             />
           </div>
           <div className="space-y-1">
@@ -189,7 +189,7 @@ export function CategoryModal({
               name="DISPLAY_NAME"
               value={formData.DISPLAY_NAME || ""}
               onChange={handleInputChange}
-              required
+              required disabled={mode === "edit"}
             />
           </div>
           <div className="space-y-1">
@@ -198,7 +198,7 @@ export function CategoryModal({
               value={formData.MODULE_NAME || ""}
               onValueChange={(value) =>
                 handleSelectChange("MODULE_NAME", value)
-              }
+              } disabled={mode === "edit"}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a module" />
@@ -224,7 +224,7 @@ export function CategoryModal({
               {/* Disabled base path - shows but can't edit */}
               <Input
                 value={formData.CATEGORY_NAME}
-                disabled
+                disabled={mode === "edit"}
                 className="w-full"
               />
 
@@ -261,7 +261,7 @@ export function CategoryModal({
                   }));
                 }}
                 className="w-full"
-                placeholder="subfolder (e.g. def/ghi)"
+                placeholder="Subfolder (e.g. def/ghi)"
               />
             </div>
 
@@ -280,7 +280,7 @@ export function CategoryModal({
               name="SEARCH_TAGS"
               value={formData.SEARCH_TAGS || ""}
               onChange={handleInputChange}
-              placeholder="Enter comma-separated search tags"
+              placeholder="Enter comma-separated search tags" disabled={mode === "edit"}
             />
             <p className="text-xs text-muted-foreground">
               Use commas to separate tags (e.g., invoice, bill) to enhance AI

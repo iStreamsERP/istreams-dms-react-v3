@@ -565,6 +565,7 @@ const DocumentUploadModal = ({
           FOR_THE_USERS: selectedDocument.FOR_THE_USERS || "",
           EXPIRY_DATE: file.EXPIRY_DATE || "",
           DOC_NAME: file.name,
+          //DOC_EXT: file.name.split(".").pop(),
           FILE_PATH: "",
           IsPrimaryDocument: file.isPrimaryDocument,
         };
