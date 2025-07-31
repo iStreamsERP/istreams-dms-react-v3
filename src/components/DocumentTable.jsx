@@ -8,6 +8,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { usePermissions } from "@/hooks/usePermissions";
+import { useToast } from "@/hooks/useToast";
 import {
   flexRender,
   getCoreRowModel,
@@ -22,26 +24,35 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Ellipsis,
   FilePen,
+  LockKeyhole,
   SquarePenIcon,
   Trash2,
   Upload,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PacmanLoader } from "react-spinners";
+import { callSoapService } from "../api/callSoapService";
 import { useAuth } from "../contexts/AuthContext";
 import DocumentFormModal from "./dialog/DocumentFormModal";
 import DocumentUploadModal from "./dialog/DocumentUploadModal";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { usePermissions } from "@/hooks/usePermissions";
-import { callSoapService } from "../api/callSoapService";
-import { useToast } from "@/hooks/useToast";
+import { useNavigate } from "react-router-dom";
+import UserPermissionsDialog from "@/components/dialog/UserPermissionDialog";
 
-const DocumentTable = ({ fetchDataRef, globalFilter, setGlobalFilter, onOpenUpload }) => {
+const DocumentTable = ({
+  fetchDataRef,
+  globalFilter,
+  setGlobalFilter,
+  onOpenUpload,
+}) => {
   const { userData } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const { hasPermission, isAdmin, docCategories } = usePermissions();
+  const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false);
 
   const [userEditRights, setUserEditRights] = useState("");
 
@@ -201,7 +212,6 @@ const DocumentTable = ({ fetchDataRef, globalFilter, setGlobalFilter, onOpenUplo
       }
 
       console.log(doc);
-
 
       setSelectedDocument(doc);
       if (formModalRef?.current) {
@@ -406,10 +416,10 @@ const DocumentTable = ({ fetchDataRef, globalFilter, setGlobalFilter, onOpenUplo
               {value > 0 ? (
                 <button
                   onClick={() => handleOpenUpload(rowData)}
-                  className="flex items-center gap-1"
+                  className="flex items-center gap-1 bg-green-500 text-white rounded-full text-[10px] font-bold px-2 py-[2px] hover:cursor-pointer"
                   title="Upload/View Documents"
                 >
-                  <Badge className="bg-green-500 text-white rounded-full text-[10px] font-bold px-2 py-[2px]">
+                  <Badge className="bg-transparent p-0 text-white">
                     {value}
                   </Badge>
                   <FilePen className="h-4 w-4" />
@@ -420,7 +430,7 @@ const DocumentTable = ({ fetchDataRef, globalFilter, setGlobalFilter, onOpenUplo
                   variant="ghost"
                   size="icon"
                   title="Upload Document"
-                  className="h-6 w-6"
+                  className="h-6 w-6 hover:cursor-pointer"
                 >
                   <Upload className="h-4 w-4" />
                 </Button>
@@ -432,20 +442,55 @@ const DocumentTable = ({ fetchDataRef, globalFilter, setGlobalFilter, onOpenUplo
       {
         header: () => <p className="truncate w-full"></p>,
         id: "actions",
-        size: 50,
+        size: 80,
         cell: ({ row }) => {
           const doc = row.original;
+          const [open, setOpen] = useState(false);
+
           return (
-            <div className="flex items-center gap-2">
-              <button onClick={() => handleOpenForm(doc)}>
-                <SquarePenIcon className="h-4 w-4" />
-              </button>
+            <div className="relative">
               <button
-                className="text-red-600"
-                onClick={() => handleDelete(doc)}
+                onClick={() => setOpen((prev) => !prev)}
+                className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
               >
-                <Trash2 className="h-4 w-4" />
+                <Ellipsis className="h-5 w-5" />
               </button>
+
+              {open && (
+                <div className="absolute right-0 mt-2 w-32 bg-white dark:bg-gray-800 shadow-lg rounded-md border dark:border-gray-700 z-10">
+                  <button
+                    onClick={() => {
+                      setSelectedDocument(doc);
+                      setPermissionsDialogOpen(true);
+                      setOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 w-full text-left"
+                  >
+                    <LockKeyhole className="h-4 w-4" />
+                    <span>Doc Access</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleOpenForm(doc);
+                      setOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 w-full text-left"
+                  >
+                    <SquarePenIcon className="h-4 w-4" />
+                    <span>Edit</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      handleDelete(doc);
+                      setOpen(false);
+                    }}
+                    className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900 w-full text-left"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete</span>
+                  </button>
+                </div>
+              )}
             </div>
           );
         },
@@ -616,7 +661,9 @@ const DocumentTable = ({ fetchDataRef, globalFilter, setGlobalFilter, onOpenUplo
 
           {/* Go to Page */}
           <div className="flex items-center gap-2 mt-2 sm:mt-0">
-            <span className="text-sm text-gray-800 dark:text-gray-200">Go to page:</span>
+            <span className="text-sm text-gray-800 dark:text-gray-200">
+              Go to page:
+            </span>
             <Input
               type="number"
               placeholder="Page"
@@ -667,6 +714,17 @@ const DocumentTable = ({ fetchDataRef, globalFilter, setGlobalFilter, onOpenUplo
         selectedDocument={selectedDocument}
         onUploadSuccess={fetchDocsMasterList}
       />
+
+      {permissionsDialogOpen && (
+        <UserPermissionsDialog
+          isOpen={permissionsDialogOpen}
+          onClose={() => {
+            setPermissionsDialogOpen(false);
+            setSelectedDocument(null);
+          }}
+          document={selectedDocument}
+        />
+      )}
     </>
   );
 };

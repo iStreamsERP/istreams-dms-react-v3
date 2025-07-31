@@ -51,14 +51,22 @@ const callSoapServiceforMethods = async (url, methodName, parameterDetails) => {
 
 export const callSoapService = async (url, methodName, parameterDetails) => {
   try {
-    const storedPayload = JSON.parse(localStorage.getItem("doConnectionPayload"));
+    const storedPayload = JSON.parse(
+      localStorage.getItem("doConnectionPayload")
+    );
     if (storedPayload && typeof storedPayload === "object") {
       await callSoapServiceforMethods(url, "doConnection", storedPayload);
     } else {
       console.warn("⚠️ doConnectionParameter is missing or invalid.");
     }
 
-    const response = await callSoapServiceforMethods(url, methodName, parameterDetails);
+    const response = await callSoapServiceforMethods(
+      url,
+      methodName,
+      parameterDetails
+    );
+
+    console.log("response");
 
     let parsedResponse;
 
@@ -85,13 +93,26 @@ export const callSoapService = async (url, methodName, parameterDetails) => {
   }
 };
 
-export const callPublicSoapService = async (url, methodName, parameterDetails) => {
+export const callPublicSoapService = async (
+  url,
+  methodName,
+  parameterDetails
+) => {
   try {
-    const publicResponse = await callSoapServiceforMethods(url, "ConnectToPublicDB", "");
+    const publicResponse = await callSoapServiceforMethods(
+      url,
+      "ConnectToPublicDB",
+      ""
+    );
 
-    if (publicResponse !== "Success") console.log("✅ Public Connection Success.");
+    if (publicResponse !== "Success")
+      console.log("✅ Public Connection Success.");
 
-    const response = await callSoapServiceforMethods(url, methodName, parameterDetails);
+    const response = await callSoapServiceforMethods(
+      url,
+      methodName,
+      parameterDetails
+    );
 
     let parsedResponse;
 

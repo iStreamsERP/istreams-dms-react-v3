@@ -72,8 +72,8 @@ const router: RouteObject[] = createBrowserRouter([
             path: "category-access-rights",
             element: <CategoryAccessRightsPage />,
           }, // Fixed typo
-          { path: "user-access-rights", element: <UserAccessRightsPage /> }, // Fixed typo
-          { path: "role-access-rights", element: <RoleAccessRightsPage /> }, // Fixed typo
+          { path: "user-access-rights", element: <UserAccessRightsPage /> },
+          { path: "role-access-rights", element: <RoleAccessRightsPage /> },
           { path: "category-master", element: <CategoryMasterPage /> },
         ],
       },

@@ -1,35 +1,106 @@
+import { useState, useEffect, useCallback } from "react";
 import { callSoapService } from "@/api/callSoapService";
 import axios from "axios";
 import { Download, X, XIcon } from "lucide-react";
-import { useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useAuth } from "../../contexts/AuthContext";
 import { getFileIcon } from "../../utils/getFileIcon";
 import { Button } from "../ui/button";
 import { Separator } from "../ui/separator";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
 import { useToast } from "@/hooks/useToast";
+import { useDocumentRights } from "@/hooks/useDocumentRights";
+
+// Define interfaces for type safety
+interface Document {
+  REF_SEQ_NO: string;
+  SERIAL_NO: string;
+  DOC_NAME: string;
+  DOCUMENT_NO?: string;
+  DOC_EXT?: string;
+  IS_PRIMARY_DOCUMENT?: string;
+  USER_NAME?: string;
+  DOCUMENT_STATUS?: string;
+  ASSIGNED_USER?: string;
+  DOCUMENT_DESCRIPTION?: string;
+  DOC_SOURCE_FROM?: string;
+  DOC_RELATED_TO?: string;
+  DOC_RELATED_CATEGORY?: string;
+  DOC_REF_VALUE?: string;
+  COMMENTS?: string;
+  DOC_TAGS?: string;
+  FOR_THE_USERS?: string;
+  EXPIRY_DATE?: string;
+}
+
+interface UserData {
+  clientURL: string;
+  userEmail: string;
+  userName: string;
+  isAdmin: boolean;
+}
+
+interface DocumentUploadModalProps {
+  uploadModalRef: React.RefObject<HTMLDialogElement>;
+  selectedDocument: Document;
+  onUploadSuccess: () => void;
+  onUploadProgress: (progress: number | null) => void;
+}
 
 const DocumentUploadModal = ({
   uploadModalRef,
   selectedDocument,
   onUploadSuccess,
-  onUploadProgress
-}) => {
+  onUploadProgress,
+}: DocumentUploadModalProps) => {
   const { userData } = useAuth();
   const { toast } = useToast();
-  const [existingDocs, setExistingDocs] = useState([]);
+  const [existingDocs, setExistingDocs] = useState<Document[]>([]);
   const [isLoadingDocs, setIsLoadingDocs] = useState(false);
   const [fetchError, setFetchError] = useState("");
-  const [files, setFiles] = useState([]);
+  const [files, setFiles] = useState<
+    {
+      file: File;
+      name: string;
+      size: string;
+      docExtension: string;
+      isPrimaryDocument: boolean;
+    }[]
+  >([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [currentOperation, setCurrentOperation] = useState('');
-
-  // Add state to track loading for individual files
-  const [fileLoadingStates, setFileLoadingStates] = useState({});
+  const [currentOperation, setCurrentOperation] = useState("");
+  const [fileLoadingStates, setFileLoadingStates] = useState<
+    Record<string, string>
+  >({});
   const [userViewRights, setUserViewRights] = useState("");
+
+  // Use the document rights hook at the top level
+  const {
+    hasPermission: hasDeletePermission,
+    isLoading: isCheckingDeletePermission,
+    error: deletePermissionError,
+    checkPermission: checkDeletePermission,
+  } = useDocumentRights({
+    clientURL: userData.clientURL,
+    refSeqNo: selectedDocument?.REF_SEQ_NO || "",
+    userId: userData.userName,
+    permission: "D",
+  });
+
+  // Use document rights hook for view permission
+  const {
+    hasPermission: hasViewPermission,
+    isLoading: isCheckingViewPermission,
+    error: viewPermissionError,
+    checkPermission: checkViewPermission,
+  } = useDocumentRights({
+    clientURL: userData.clientURL,
+    refSeqNo: selectedDocument?.REF_SEQ_NO || "",
+    userId: userData.userName,
+    permission: "R",
+  });
 
   // Fetch existing documents and categories
   useEffect(() => {
@@ -44,7 +115,6 @@ const DocumentUploadModal = ({
     setFetchError("");
 
     try {
-      // Fetch existing documents
       const payload = {
         DataModelName: "synmview_dms_details_all",
         WhereCondition: `REF_SEQ_NO = ${selectedDocument.REF_SEQ_NO}`,
@@ -57,11 +127,9 @@ const DocumentUploadModal = ({
         payload
       );
 
-      // Handle different response formats
       const receivedDocs = Array.isArray(response)
         ? response
         : response?.Data || [];
-
       setExistingDocs(receivedDocs);
     } catch (err) {
       console.error("Fetch existing docs error:", err);
@@ -86,13 +154,12 @@ const DocumentUploadModal = ({
         "DMS_CheckRights_ForTheUser",
         payload
       );
-
       setUserViewRights(response);
     } catch (error) {
       console.error("Failed to fetch user rights:", error);
       toast({
         variant: "destructive",
-        title: error,
+        title: String(error),
       });
     }
   };
@@ -139,19 +206,18 @@ const DocumentUploadModal = ({
     },
   });
 
-  const handleSetPrimary = (index) => {
+  const handleSetPrimary = (index: number) => {
     setFiles((prevFiles) => {
-      // First, uncheck all other files
       const updatedFiles = prevFiles.map((file, i) => ({
         ...file,
         isPrimaryDocument: i === index ? !file.isPrimaryDocument : false,
       }));
 
-      // If the clicked file was already primary and we're unchecking it,
-      // make sure at least one file remains primary if there are existing files
-      if (updatedFiles[index].isPrimaryDocument === false &&
-        existingDocs.filter(doc => doc.IS_PRIMARY_DOCUMENT === "T").length === 0) {
-        // Find the first file that can be primary
+      if (
+        updatedFiles[index].isPrimaryDocument === false &&
+        existingDocs.filter((doc) => doc.IS_PRIMARY_DOCUMENT === "T").length ===
+          0
+      ) {
         const firstFileIndex = updatedFiles.findIndex((_, i) => i !== index);
         if (firstFileIndex !== -1) {
           updatedFiles[firstFileIndex].isPrimaryDocument = true;
@@ -175,7 +241,6 @@ const DocumentUploadModal = ({
         "DataModel_GetData",
         payload
       );
-
       const updatedDocs = Array.isArray(response)
         ? response
         : response?.Data || [];
@@ -185,16 +250,16 @@ const DocumentUploadModal = ({
     }
   };
 
-  const canCurrentUserEdit = () => {
-    if (selectedDocument?.USER_NAME !== userData.userName)
+  const canCurrentUserEdit = (doc: Document): string => {
+    if (doc?.USER_NAME !== userData.userName)
       return "Access Denied: This document is created by another user.";
 
-    const STATUS = selectedDocument?.DOCUMENT_STATUS?.toUpperCase();
+    const STATUS = doc?.DOCUMENT_STATUS?.toUpperCase();
 
     if (STATUS === "VERIFIED")
       return "Access Denied: Document is verified and approved.";
     if (STATUS === "AWAITING FOR USER ACCEPTANCE")
-      return `Access Denied: Document is assigned to ${selectedDocument.ASSIGNED_USER}.`;
+      return `Access Denied: Document is assigned to ${doc.ASSIGNED_USER}.`;
     if (STATUS === "IN PROGRESS")
       return "Access Denied: Document is in progress.";
     if (STATUS === "COMPLETED")
@@ -202,51 +267,74 @@ const DocumentUploadModal = ({
     return "";
   };
 
-  const handleViewDocs = async (selectedDocs) => {
+  const handleViewDocs = async (selectedDocs: Document) => {
+    setCurrentOperation("view");
+    setIsLoading(true);
+    await checkViewPermission();
+
+    // Check permission result
+    if (viewPermissionError || !hasViewPermission) {
+      console.log(hasViewPermission);
+
+      setIsLoading(false);
+      setCurrentOperation("");
+      alert(
+        viewPermissionError ||
+          "You do not have permission to view this document"
+      );
+      return;
+    }
+
     const hasAccess = String(userViewRights)?.toLowerCase() === "allowed";
 
     if (!hasAccess) {
-      alert("You don't have permission to view documents.");
+      toast({
+        title: "Access Denied",
+        description: "You don't have permission to view documents.",
+        variant: "destructive",
+      });
       return;
     }
 
     const fileKey = `${selectedDocs.REF_SEQ_NO}-${selectedDocs.SERIAL_NO}`;
-
-    setFileLoadingStates(prev => ({
+    setFileLoadingStates((prev) => ({
       ...prev,
-      [fileKey]: 'view'
+      [fileKey]: "view",
     }));
 
-
     try {
-      const downloadUrl = `https://apps.istreams-erp.com:4440/api/megacloud/download?email=${encodeURIComponent(userData.userEmail)}&refNo=${encodeURIComponent(selectedDocs.REF_SEQ_NO)}&fileName=${selectedDocs.DOC_NAME}`;
+      const downloadUrl = `https://apps.istreams-erp.com:4440/api/megacloud/download?email=${encodeURIComponent(
+        userData.userEmail
+      )}&refNo=${encodeURIComponent(selectedDocs.REF_SEQ_NO)}&fileName=${
+        selectedDocs.DOC_NAME
+      }`;
 
-      const response = await axios.get(downloadUrl, {
-        responseType: 'blob', // Important for handling binary/file data
-      });
-
-      // Create a blob from the response data
+      const response = await axios.get(downloadUrl, { responseType: "blob" });
       const blob = new Blob([response.data], {
-        type: response.headers['content-type'] || 'application/octet-stream',
+        type: response.headers["content-type"] || "application/octet-stream",
       });
 
-      // Create a temporary URL and trigger download
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = url;
-      link.setAttribute('download', selectedDocs.DOC_NAME || `document_${selectedDocs.REF_SEQ_NO}`);
+      link.setAttribute(
+        "download",
+        selectedDocs.DOC_NAME || `document_${selectedDocs.REF_SEQ_NO}`
+      );
       document.body.appendChild(link);
       link.click();
-
-      // Cleanup
       link.remove();
       window.URL.revokeObjectURL(url);
-
     } catch (err) {
       console.error("Error downloading document:", err);
-      alert("Failed to download the document. Please try again.");
+      toast({
+        title: "Download Failed",
+        description: "Failed to download the document. Please try again.",
+        variant: "destructive",
+      });
     } finally {
-      setFileLoadingStates(prev => {
+      setIsLoading(false);
+      setFileLoadingStates((prev) => {
         const newState = { ...prev };
         delete newState[fileKey];
         return newState;
@@ -254,129 +342,170 @@ const DocumentUploadModal = ({
     }
   };
 
-  const handleDelete = async (doc) => {
-    const editError = canCurrentUserEdit(doc);
-    if (editError) {
-      toast({
-        title: "Access Denied",
-        description: editError,
-        variant: "destructive"
-      });
-      return;
-    }
+  const handleDelete = async (doc: Document) => {
+    setCurrentOperation("delete");
+    setIsLoading(true);
 
-    if (!window.confirm(`Are you sure you want to delete "${doc.DOC_NAME}"?`)) return;
-
-    const fileKey = `${doc.REF_SEQ_NO}-${doc.SERIAL_NO}`;
-    setFileLoadingStates(prev => ({
-      ...prev,
-      [fileKey]: 'delete'
-    }));
-
+    // Optionally re-check permission on click
     try {
-      toast({
-        title: "Deleting Document",
-        description: "Please wait while we delete your document...",
-        variant: "default"
-      });
+      await checkDeletePermission();
 
-      // First delete from MegaCloud
-      const deleteUrl = `https://apps.istreams-erp.com:4440/api/megacloud/delete?email=${encodeURIComponent(userData.userEmail)}&refNo=${encodeURIComponent(doc.REF_SEQ_NO)}&fileName=${encodeURIComponent(doc.DOC_NAME)}`;
-
-      const deleteResponse = await axios.delete(deleteUrl);
-
-      if (deleteResponse.status !== 200) {
-        throw new Error(deleteResponse.data?.message || "File deletion failed");
+      // Check permission result
+      if (deletePermissionError || !hasDeletePermission) {
+        setIsLoading(false);
+        setCurrentOperation("");
+        alert(
+          deletePermissionError ||
+            "You do not have permission to delete this document"
+        );
+        return;
       }
 
-      const payload = {
-        USER_NAME: userData.userName,
-        REF_SEQ_NO: selectedDocument.REF_SEQ_NO,
-        SERIAL_NO: doc.SERIAL_NO,
-      };
+      const editError = canCurrentUserEdit(doc);
+      if (editError) {
+        setIsLoading(false);
+        setCurrentOperation("");
+        alert("Access Denied");
+        return;
+      }
 
-      const response = await callSoapService(
-        userData.clientURL,
-        "DMS_Delete_DMS_Detail",
-        payload
-      );
+      if (
+        !window.confirm(`Are you sure you want to delete "${doc.DOC_NAME}"?`)
+      ) {
+        setIsLoading(false);
+        setCurrentOperation("");
+        return;
+      }
 
-      // Show success message
-      toast({
-        title: "Success",
-        description: "Document deleted successfully",
-        variant: "default"
-      });
+      const fileKey = `${doc.REF_SEQ_NO}-${doc.SERIAL_NO}`;
+      setFileLoadingStates((prev) => ({
+        ...prev,
+        [fileKey]: "delete",
+      }));
 
-      await refreshDocuments();
-      if (onUploadSuccess) onUploadSuccess();
+      try {
+        toast({
+          title: "Deleting Document",
+          description: "Please wait while we delete your document...",
+          variant: "default",
+        });
+
+        const deleteUrl = `https://apps.istreams-erp.com:4440/api/megacloud/delete?email=${encodeURIComponent(
+          userData.userEmail
+        )}&refNo=${encodeURIComponent(
+          doc.REF_SEQ_NO
+        )}&fileName=${encodeURIComponent(doc.DOC_NAME)}`;
+
+        const deleteResponse = await axios.delete(deleteUrl);
+
+        if (deleteResponse.status !== 200) {
+          throw new Error(
+            deleteResponse.data?.message || "File deletion failed"
+          );
+        }
+
+        const payload = {
+          USER_NAME: userData.userName,
+          REF_SEQ_NO: doc.REF_SEQ_NO,
+          SERIAL_NO: doc.SERIAL_NO,
+        };
+
+        await callSoapService(
+          userData.clientURL,
+          "DMS_Delete_DMS_Detail",
+          payload
+        );
+
+        toast({
+          title: "Success",
+          description: "Document deleted successfully",
+          variant: "default",
+        });
+
+        await refreshDocuments();
+        if (onUploadSuccess) onUploadSuccess();
+      } catch (err) {
+        console.error("Delete error:", err);
+        toast({
+          title: "Delete Failed",
+          description: (err as Error).message || "Failed to delete document",
+          variant: "destructive",
+        });
+      } finally {
+        setFileLoadingStates((prev) => {
+          const newState = { ...prev };
+          delete newState[fileKey];
+          return newState;
+        });
+        setIsLoading(false);
+        setCurrentOperation("");
+      }
     } catch (err) {
-      console.error("Delete error:", err);
-      toast({
-        title: "Delete Failed",
-        description: err?.message || "Failed to delete document",
-        variant: "destructive"
-      });
-    } finally {
-      setFileLoadingStates(prev => {
-        const newState = { ...prev };
-        delete newState[fileKey];
-        return newState;
-      });
+      setIsLoading(false);
+      setCurrentOperation("");
+      alert("Failed to check permissions");
     }
   };
 
   const handleUpload = async () => {
     if (files.length === 0) {
-      alert("Please select at least one document to upload.")
-      return;
-    }
-
-    const editError = canCurrentUserEdit(selectedDocument);
-
-    if (editError) {
       toast({
-        title: "Access Denied",
-        description: editError,
+        title: "No Files Selected",
+        description: "Please select at least one document to upload.",
+        variant: "destructive",
       });
       return;
     }
 
-    // 2. Count primaries
+    const editError = canCurrentUserEdit(selectedDocument);
+    if (editError) {
+      toast({
+        title: "Access Denied",
+        description: editError,
+        variant: "destructive",
+      });
+      return;
+    }
+
     const existingPrimaryCount = existingDocs.filter(
       (doc) => doc.IS_PRIMARY_DOCUMENT === "T"
     ).length;
-
     const newPrimaryCount = files.filter(
       (file) => file.isPrimaryDocument
     ).length;
 
-    //3. Enforce exactly one primary across all documents
-
-    // If there's already a primary document, don't allow uploading another primary
     if (existingPrimaryCount > 0 && newPrimaryCount > 0) {
-      alert("A primary document already exists. You can only upload supporting documents.")
+      toast({
+        title: "Invalid Selection",
+        description:
+          "A primary document already exists. You can only upload supporting documents.",
+        variant: "destructive",
+      });
       return;
     }
 
-    // If there's no existing primary, ensure exactly one primary is selected in new uploads
     if (existingPrimaryCount === 0 && newPrimaryCount === 0) {
-      alert("You must select one primary document before uploading.")
+      toast({
+        title: "Invalid Selection",
+        description: "You must select one primary document before uploading.",
+        variant: "destructive",
+      });
       return;
     }
 
-    // Don't allow multiple primaries in a single upload
     if (newPrimaryCount > 1) {
-      alert("You can only select one primary document at a time.")
+      toast({
+        title: "Invalid Selection",
+        description: "You can only select one primary document at a time.",
+        variant: "destructive",
+      });
       return;
     }
-
-    // 4. Ready to upload
 
     setErrorMsg("");
     setIsSubmitting(true);
     setIsLoading(true);
-    setCurrentOperation('upload');
+    setCurrentOperation("upload");
 
     try {
       if (onUploadProgress) onUploadProgress(0);
@@ -386,10 +515,10 @@ const DocumentUploadModal = ({
       const totalSize = files.reduce((sum, file) => sum + file.file.size, 0);
       let uploadedSize = 0;
 
-      // Calculate next serial number
       const maxSerial = existingDocs.reduce(
-        (max, doc) => Math.max(max, doc.SERIAL_NO || 0), 0);
-
+        (max, doc) => Math.max(max, doc.SERIAL_NO || 0),
+        0
+      );
       let currentSerial = maxSerial;
 
       for (const [index, file] of files.entries()) {
@@ -397,19 +526,17 @@ const DocumentUploadModal = ({
 
         const formData = new FormData();
         formData.append("file", file.file);
-        // Add additional fields if required by your API
         formData.append("fileName", file.name);
         formData.append("email", email);
         formData.append("refNo", refNo.toString());
         formData.append("isPrimary", file.isPrimaryDocument.toString());
         formData.append("serialNo", currentSerial.toString());
-        console.log(file.file);
 
-        const uploadUrl = `https://apps.istreams-erp.com:4440/api/megacloud/upload?email=${encodeURIComponent(email)}&refNo=${encodeURIComponent(refNo)}`;
+        const uploadUrl = `https://apps.istreams-erp.com:4440/api/megacloud/upload?email=${encodeURIComponent(
+          email
+        )}&refNo=${encodeURIComponent(refNo)}`;
         const uploadResponse = await axios.post(uploadUrl, formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
+          headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress: (progressEvent) => {
             uploadedSize += progressEvent.bytes;
             const progress = Math.round((uploadedSize / totalSize) * 100);
@@ -422,10 +549,6 @@ const DocumentUploadModal = ({
             `File upload failed with status ${uploadResponse.status}`
           );
         }
-
-        const uploadResult = uploadResponse.data.message;
-
-        // const base64Data = await readFileAsBase64(file.file);
 
         const payload = {
           REF_SEQ_NO: selectedDocument.REF_SEQ_NO,
@@ -441,24 +564,20 @@ const DocumentUploadModal = ({
           DOC_TAGS: selectedDocument.DOC_TAGS || "",
           FOR_THE_USERS: selectedDocument.FOR_THE_USERS || "",
           EXPIRY_DATE: file.EXPIRY_DATE || "",
-          // DOC_DATA: base64Data,
           DOC_NAME: file.name,
-          // DOC_EXT: file.name.split(".").pop(),
           FILE_PATH: "",
           IsPrimaryDocument: file.isPrimaryDocument,
         };
 
-        const response = await callSoapService(
+        await callSoapService(
           userData.clientURL,
           "DMS_CreateAndSave_DMS_Details",
           payload
         );
       }
 
-      const recentUploads = addToRecentUploads(files, selectedDocument);
+      addToRecentUploads(files, selectedDocument);
       if (onUploadProgress) onUploadProgress(100);
-      onUploadSuccess();
-
       await refreshDocuments();
       setFiles([]);
       uploadModalRef.current?.close();
@@ -468,73 +587,43 @@ const DocumentUploadModal = ({
       toast({
         title: "Upload Failed",
         description:
-          error?.message || "An error occurred while uploading files.",
+          (error as Error).message ||
+          "An error occurred while uploading files.",
+        variant: "destructive",
       });
-
     } finally {
       setIsSubmitting(false);
       setIsLoading(false);
-      setCurrentOperation('');
+      setCurrentOperation("");
     }
   };
 
-  // Inside the DocumentUploadModal component, add this function:
-  const addToRecentUploads = (uploadedFiles, documentInfo) => {
-    const recentUploads = JSON.parse(localStorage.getItem('recentUploads') || '[]');
-
-    const newUploads = uploadedFiles.map(file => ({
+  const addToRecentUploads = (
+    uploadedFiles: typeof files,
+    documentInfo: Document
+  ) => {
+    const recentUploads = JSON.parse(
+      localStorage.getItem("recentUploads") || "[]"
+    );
+    const newUploads = uploadedFiles.map((file) => ({
       id: uuidv4(),
       fileName: file.name,
-      fileExtension: file.name.split('.').pop(),
+      fileExtension: file.name.split(".").pop(),
       refNo: documentInfo.REF_SEQ_NO,
       description: documentInfo.DOCUMENT_DESCRIPTION,
       isPrimary: file.isPrimaryDocument,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }));
 
-    // Add new uploads to beginning of array
-    const updatedUploads = [...newUploads, ...recentUploads];
-
-    // Keep only the last 20 uploads
-    const limitedUploads = updatedUploads.slice(0, 20);
-
-    localStorage.setItem('recentUploads', JSON.stringify(limitedUploads));
-    return limitedUploads;
+    const updatedUploads = [...newUploads, ...recentUploads].slice(0, 20);
+    localStorage.setItem("recentUploads", JSON.stringify(updatedUploads));
+    return updatedUploads;
   };
 
-  {
-    isLoading && (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl flex flex-col items-center">
-          <svg
-            className="animate-spin h-8 w-8 text-blue-500 mb-2"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-          </svg>
-          <p className="text-gray-700 dark:text-gray-300">
-            {currentOperation === 'upload' && 'Uploading files...'}
-            {currentOperation === 'delete' && 'Deleting document...'}
-            {currentOperation === 'view' && 'Preparing download...'}
-          </p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <dialog
-      ref={uploadModalRef}
-      id="document-upload-form"
-      name="document-upload-form"
-      className="relative"
-    >
+    <dialog ref={uploadModalRef} id="document-upload-form" className="relative">
       <div
         className="fixed inset-0 bg-black/50 flex items-center justify-center"
-        aria-hidden="true"
         style={{ isolation: "isolate" }}
       >
         <div className="flex flex-col justify-between h-[80%] p-4 w-full max-w-5xl rounded-xl bg-white shadow-xl dark:bg-slate-950 text-gray-900 dark:text-gray-100 overflow-y-auto">
@@ -564,6 +653,7 @@ const DocumentUploadModal = ({
             </div>
 
             <Separator className="my-4" />
+            
             {fetchError && (
               <div className="alert alert-error mb-1">
                 <span>{fetchError}</span>
@@ -587,13 +677,11 @@ const DocumentUploadModal = ({
                 {existingDocs.map((doc) => {
                   const fileKey = `${doc.REF_SEQ_NO}-${doc.SERIAL_NO}`;
                   const isFileLoading = fileLoadingStates[fileKey];
-                  const docExtension = doc.DOC_EXT || doc.DOC_NAME?.split('.').pop() || '';
+                  const docExtension =
+                    doc.DOC_EXT || doc.DOC_NAME?.split(".").pop() || "";
 
                   return (
-                    <div
-                      key={fileKey}
-                      className="w-72"
-                    >
+                    <div key={fileKey} className="w-72">
                       <div className="card bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded-2xl shadow-sm hover:shadow-md transition-shadow">
                         <div className="card-body p-4">
                           <div className="flex justify-between items-start gap-3">
@@ -616,7 +704,7 @@ const DocumentUploadModal = ({
                                 </h5>
                                 <div className="text-xs mt-1 flex items-center gap-2">
                                   <span className="text-gray-500 dark:text-gray-400">
-                                    {docExtension?.DOC_EXT?.toUpperCase() || 'Unknown'}
+                                    {docExtension?.toUpperCase() || "Unknown"}
                                   </span>
                                   {doc.IS_PRIMARY_DOCUMENT === "T" && (
                                     <span className="px-2 py-0.5 rounded text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
@@ -633,10 +721,26 @@ const DocumentUploadModal = ({
                                 disabled={isFileLoading}
                                 className="p-1.5 rounded-full text-gray-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-gray-700 dark:hover:text-blue-400"
                               >
-                                {isFileLoading === 'view' ? (
-                                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                {isFileLoading === "view" ? (
+                                  <svg
+                                    className="animate-spin h-4 w-4"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <circle
+                                      className="opacity-25"
+                                      cx="12"
+                                      cy="12"
+                                      r="10"
+                                      stroke="currentColor"
+                                      strokeWidth="4"
+                                    />
+                                    <path
+                                      className="opacity-75"
+                                      fill="currentColor"
+                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                    />
                                   </svg>
                                 ) : (
                                   <Download className="h-4 w-4" />
@@ -645,13 +749,32 @@ const DocumentUploadModal = ({
                               <button
                                 onClick={() => handleDelete(doc)}
                                 title="Delete"
-                                disabled={isFileLoading}
+                                disabled={
+                                  isFileLoading || isCheckingDeletePermission
+                                }
                                 className="p-1.5 rounded-full text-gray-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-gray-700 dark:hover:text-red-400"
                               >
-                                {isFileLoading === 'delete' ? (
-                                  <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                {isFileLoading === "delete" ||
+                                isCheckingDeletePermission ? (
+                                  <svg
+                                    className="animate-spin h-4 w-4"
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                  >
+                                    <circle
+                                      className="opacity-25"
+                                      cx="12"
+                                      cy="12"
+                                      r="10"
+                                      stroke="currentColor"
+                                      strokeWidth="4"
+                                    />
+                                    <path
+                                      className="opacity-75"
+                                      fill="currentColor"
+                                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                    />
                                   </svg>
                                 ) : (
                                   <XIcon className="h-4 w-4" />
@@ -662,7 +785,7 @@ const DocumentUploadModal = ({
                         </div>
                       </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
             ) : (
@@ -707,7 +830,6 @@ const DocumentUploadModal = ({
                             <X className="h-4 w-4" />
                           </button>
                         </div>
-
                         <div className="mt-3 pt-2 flex justify-between items-center border-t border-gray-100 dark:border-gray-700">
                           <label className="flex items-center gap-2 cursor-pointer">
                             <div className="relative">
@@ -717,16 +839,37 @@ const DocumentUploadModal = ({
                                 className="sr-only peer"
                                 checked={file.isPrimaryDocument}
                                 onChange={() => handleSetPrimary(index)}
-                                disabled={existingDocs.some(doc => doc.IS_PRIMARY_DOCUMENT === "T")}
+                                disabled={existingDocs.some(
+                                  (doc) => doc.IS_PRIMARY_DOCUMENT === "T"
+                                )}
                               />
                               <div className="w-5 h-5 flex items-center justify-center rounded-full border-2 border-gray-300 dark:border-gray-600 peer-checked:border-blue-500 transition-all">
                                 {file.isPrimaryDocument && (
-                                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                  <svg
+                                    className="w-3 h-3 text-white"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M5 13l4 4L19 7"
+                                    />
                                   </svg>
-                                )}                              </div>
+                                )}
+                              </div>
                             </div>
-                            <span className={`text-sm ${existingDocs.some(doc => doc.IS_PRIMARY_DOCUMENT === "T") ? 'text-gray-400 dark:text-gray-500' : 'text-gray-700 dark:text-gray-300'}`}>
+                            <span
+                              className={`text-sm ${
+                                existingDocs.some(
+                                  (doc) => doc.IS_PRIMARY_DOCUMENT === "T"
+                                )
+                                  ? "text-gray-400 dark:text-gray-500"
+                                  : "text-gray-700 dark:text-gray-300"
+                              }`}
+                            >
                               Primary Document
                             </span>
                           </label>
@@ -743,7 +886,6 @@ const DocumentUploadModal = ({
               </div>
             )}
           </div>
-
           <div className="flex justify-end gap-3 w-full mt-5">
             <Button
               variant="outline"
@@ -751,7 +893,7 @@ const DocumentUploadModal = ({
             >
               Cancel
             </Button>
-            <Button onClick={handleUpload}>
+            <Button onClick={handleUpload} disabled={isSubmitting}>
               {isSubmitting ? (
                 <>Uploading...</>
               ) : (
@@ -761,6 +903,37 @@ const DocumentUploadModal = ({
           </div>
         </div>
       </div>
+      {isLoading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-xl flex flex-col items-center">
+            <svg
+              className="animate-spin h-8 w-8 text-blue-500 mb-2"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle
+                className="opacity-25"
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="4"
+              />
+              <path
+                className="opacity-75"
+                fill="currentColor"
+                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+              />
+            </svg>
+            <p className="text-gray-700 dark:text-gray-300">
+              {currentOperation === "upload" && "Uploading files..."}
+              {currentOperation === "delete" && "Deleting document..."}
+              {currentOperation === "view" && "Preparing download..."}
+            </p>
+          </div>
+        </div>
+      )}
     </dialog>
   );
 };

@@ -121,8 +121,6 @@ const DocumentFormModal = ({
     }
   };
 
-  console.log(selectedDocument);
-
   // Fetch existing documents
   useEffect(() => {
     fetchExistingDocument();
@@ -390,15 +388,20 @@ const DocumentFormModal = ({
         "SYNM_DMS_MASTER",
         formData
       );
+
       const payload = {
         UserName: userData.userEmail,
         DModelData: convertedDataModel,
       };
+
       const response = await callSoapService(
         userData.clientURL,
         "DataModel_SaveData",
         payload
       );
+
+      console.log(response);
+
       toast({
         title: "Success",
         description: response,
@@ -684,7 +687,7 @@ const DocumentFormModal = ({
                           <p className="text-sm font-medium">
                             {formData.REF_SEQ_NO === -1
                               ? userData.userName
-                              : selectedDocument.USER_NAME}
+                              : selectedDocument?.USER_NAME}
                           </p>
                         </div>
                         <div className="flex items-center justify-between gap-3 w-full">

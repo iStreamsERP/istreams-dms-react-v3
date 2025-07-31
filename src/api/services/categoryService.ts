@@ -1,4 +1,4 @@
-import { callSoapService } from '@/api/callSoapService';
+import { callSoapService } from "@/api/callSoapService";
 import type { AIQuestion, Category, Module } from "@/types";
 import { convertDataModelToStringData } from "@/utils/dataModelConverter";
 
