@@ -44,9 +44,10 @@ export const useCategoryData = (): CategoryData => {
     try {
       const data = await fetchCategories(userData.clientURL);
       setCategories(data);
-    } catch (err) {
-      setError(err);
-      toast({ variant: "destructive", title: err });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch categories";
+      setError(errorMessage);
+      toast({ variant: "destructive", title: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -54,6 +55,7 @@ export const useCategoryData = (): CategoryData => {
 
   const fetchCategoryDetails = async (categoryName: string) => {
     setLoading(true);
+    setError(null); // Reset error before fetching
     try {
       const [categoryData, aiQuestions] = await Promise.all([
         fetchCategoryByName(userData.clientURL, categoryName),
@@ -63,6 +65,11 @@ export const useCategoryData = (): CategoryData => {
         category: categoryData[0] || {},
         aiQuestions: aiQuestions || [],
       };
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch category details";
+      setError(errorMessage);
+      toast({ variant: "destructive", title: errorMessage });
+      throw err; // Rethrow to handle in caller
     } finally {
       setLoading(false);
     }
@@ -72,8 +79,9 @@ export const useCategoryData = (): CategoryData => {
     try {
       const data = await fetchModules(userData.clientURL);
       setModules(data);
-    } catch (err) {
-      toast({ variant: "destructive", title: err });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to fetch modules";
+      toast({ variant: "destructive", title: errorMessage });
     }
   };
 
@@ -82,6 +90,7 @@ export const useCategoryData = (): CategoryData => {
     aiQuestions: AIQuestion[]
   ) => {
     setLoading(true);
+    setError(null);
     try {
       await saveCategory(userData.clientURL, userData.userEmail, category);
       for (const aiQuestion of aiQuestions) {
@@ -94,8 +103,10 @@ export const useCategoryData = (): CategoryData => {
       }
       toast({ title: "Success", description: "Category saved successfully" });
       fetchCategoriesData();
-    } catch (err) {
-      toast({ variant: "destructive", title: err });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to save category";
+      setError(errorMessage);
+      toast({ variant: "destructive", title: errorMessage });
     } finally {
       setLoading(false);
     }
@@ -103,6 +114,7 @@ export const useCategoryData = (): CategoryData => {
 
   const deleteCategoryAndQuestions = async (categoryName: string) => {
     setLoading(true);
+    setError(null);
     try {
       await Promise.all([
         deleteCategory(userData.clientURL, userData.userEmail, categoryName),
@@ -110,8 +122,10 @@ export const useCategoryData = (): CategoryData => {
       ]);
       toast({ title: "Success", description: "Category deleted successfully" });
       fetchCategoriesData();
-    } catch (err) {
-      toast({ variant: "destructive", title: err });
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Failed to delete category";
+      setError(errorMessage);
+      toast({ variant: "destructive", title: errorMessage });
     } finally {
       setLoading(false);
     }

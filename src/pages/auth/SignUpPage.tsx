@@ -7,20 +7,15 @@ import { AuthLayout } from "@/layouts";
 import animationData from "@/lotties/crm-animation-lotties.json";
 import { sendEmail } from "@/services/emailService";
 import type { AuthContextType } from "@/types/auth";
-import type {
-  EmailData,
-  SignUpFormValues
-} from "@/types/signup";
+import type { EmailData, SignUpFormValues } from "@/types/signup";
 import { generateOTP } from "@/utils/generateOTP";
-import type {
-  ConfirmationResult,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-} from "firebase/auth";
+import { RecaptchaVerifier, signInWithPhoneNumber } from "firebase/auth";
+import type { ConfirmationResult } from "firebase/auth";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { auth } from "../../../firebase.config";
 import { logoDark, logoLight } from "@/assets";
+import { FirebaseError } from "firebase/app";
 
 const PUBLIC_SERVICE_URL = import.meta.env.VITE_SOAP_ENDPOINT;
 
@@ -50,7 +45,6 @@ export const SignUpPage: React.FC = () => {
   const [emailVerified, setEmailVerified] = useState<boolean>(false);
   const [phoneVerified, setPhoneVerified] = useState<boolean>(false);
   const [isEmail, setIsEmail] = useState<boolean>(true);
-  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(false);
   const [otp, setOtp] = useState<string>("");
   const [error, setError] = useState<string>("");
@@ -230,7 +224,7 @@ export const SignUpPage: React.FC = () => {
           throw new Error("Form data is incomplete");
         }
 
-        const dbResponse = await callSoapService<string>(
+        const dbResponse = await callSoapService(
           PUBLIC_SERVICE_URL,
           "ConnectToPublicDB",
           {}
@@ -241,7 +235,7 @@ export const SignUpPage: React.FC = () => {
 
         console.log("Final Payload:", payload);
 
-        const response = await callSoapService<string>(
+        const response = await callSoapService(
           PUBLIC_SERVICE_URL,
           "Public_User_CreateProfile",
           payload
@@ -257,9 +251,15 @@ export const SignUpPage: React.FC = () => {
         } else {
           throw new Error(response || "Profile creation failed");
         }
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Signup Error:", err);
-        setError(err.message || "Signup failed. Please try again.");
+        if (err instanceof FirebaseError) {
+          setError(err.message || "Signup failed. Please try again.");
+        } else if (err instanceof Error) {
+          setError(err.message || "Signup failed. Please try again.");
+        } else {
+          setError("Signup failed. Please try again.");
+        }
       } finally {
         setLoading(false);
       }

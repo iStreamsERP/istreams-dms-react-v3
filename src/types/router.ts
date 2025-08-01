@@ -1,6 +1,5 @@
 // src/types/router.ts
-import { ReactNode } from 'react';
-import { RouteObject } from 'react-router-dom';
+import type { ReactNode } from 'react';
 
 // Existing types for TourProvider (kept for compatibility with previous code)
 export interface TourStep {

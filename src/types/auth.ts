@@ -1,8 +1,8 @@
 export interface UserData {
   serviceUrl: string;
   clientURL: string;
-  companyCode: string;
-  branchCode: string;
+  companyCode?: string;
+  branchCode?: string;
   userEmail: string;
   userName: string;
   userEmployeeNo: string;
@@ -24,7 +24,8 @@ export interface AuthContextType {
   loading: boolean;
   login: (
     loginCredential: string | Partial<UserData>,
-    rememberMe: boolean
+    password: string,
+    rememberMe?: boolean
   ) => Promise<void>;
   logout: () => void;
   refreshPermissions: () => Promise<void>;

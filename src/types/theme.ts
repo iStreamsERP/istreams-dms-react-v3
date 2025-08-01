@@ -1,5 +1,4 @@
-// src/types/theme.ts
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 export type Theme = 'system' | 'light' | 'dark';
 
@@ -12,5 +11,5 @@ export interface ThemeProviderProps {
   children: ReactNode;
   defaultTheme?: Theme;
   storageKey?: string;
-  [key: string]: any; // For additional props passed to ThemeProviderContext.Provider
+  [key: string]: unknown; // For additional props passed to ThemeProviderContext.Provider
 }

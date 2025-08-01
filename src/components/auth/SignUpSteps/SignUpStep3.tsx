@@ -82,7 +82,7 @@ export const SignUpStep3: React.FC<SignUpStep3Props> = ({
 
     try {
       const methodName = isEmail ? 'Public_User_ValidateEmailAddress' : 'Public_User_ValidateMobileNo';
-      const response = await callPublicSoapService<string>(
+      const response = await callPublicSoapService(
         PUBLIC_SERVICE_URL,
         methodName,
         isEmail ? { emailAddress: contact } : { mobileNo: contact }

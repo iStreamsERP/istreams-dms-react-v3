@@ -13,6 +13,7 @@ import {
   RoleAccessRightsPage,
   SignUpPage,
   TaskPage,
+  TaskViewPage,
   TeamsPage,
   TimeSheetPage,
   UploadDocumentPage,
@@ -20,13 +21,11 @@ import {
   UserListPage,
   UserPreferences,
   UserRolePage,
-  TaskViewPage,
 } from "@/pages";
 import { createBrowserRouter } from "react-router-dom";
-import type { RouteObject } from "react-router-dom";
 import ProtectedRoute from "./ProtectedRoute";
 
-const router: RouteObject[] = createBrowserRouter([
+const router = createBrowserRouter([
   {
     path: "/login",
     element: <LoginFormPage />,

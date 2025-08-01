@@ -46,7 +46,7 @@ export const SignUpStep1: React.FC<SignUpStep1Props> = ({
       const methodName = isEmail ? 'Public_User_ValidateEmailAddress' : 'Public_User_ValidateMobileNo';
       const param = isEmail ? { emailAddress: contactInfo.trim() } : { mobileNo: contactInfo.trim() };
 
-      const response = await callPublicSoapService<string>(PUBLIC_SERVICE_URL, methodName, param);
+      const response = await callPublicSoapService(PUBLIC_SERVICE_URL, methodName, param);
 
       console.log('Validation response:', response);
 

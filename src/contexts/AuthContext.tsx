@@ -1,3 +1,4 @@
+// src/contexts/AuthContext.tsx
 import {
   createContext,
   useCallback,
@@ -5,12 +6,14 @@ import {
   useEffect,
   useState,
   useMemo,
-  ReactNode,
 } from "react";
+import type { ReactNode } from "react";
 import { callSoapService } from "@/api/callSoapService";
 import { PERMISSION_KEYS, PERMISSION_MAP } from "@/permissions";
 import type { UserData } from "@/types/auth";
 import type { AuthContextType } from "@/types/auth";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../../firebase.config";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 const PUBLIC_SERVICE_URL = import.meta.env.VITE_SOAP_ENDPOINT;
@@ -32,6 +35,8 @@ const defaultUserData: UserData = {
   isAdmin: false,
   permissions: {},
   docCategories: [],
+  companyCode: "",
+  branchCode: "",
 };
 
 interface AuthProviderProps {
@@ -51,13 +56,11 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [loading, setLoading] = useState<boolean>(true);
   const [permissionLoading, setPermissionLoading] = useState<boolean>(false);
 
-  // Fetch all permissions in a single batch
   const fetchAllPermissions = useCallback(
     async (user: UserData): Promise<Partial<UserData>> => {
       try {
         const { userName, clientURL } = user;
 
-        // 1. First get admin status - this is critical for permission requests
         const adminResponse = await callSoapService(
           clientURL,
           "DMS_Is_Admin_User",
@@ -65,22 +68,17 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         );
         const isAdmin: boolean = adminResponse === "Yes";
 
-        // 2. Now fetch other data in parallel using actual admin status
         const [categoriesResponse, ...permissionResponses] = await Promise.all([
-          // Document categories
           callSoapService(clientURL, "DMS_Get_Allowed_DocCategories", {
             UserName: userName,
           }),
-
-          // All permissions - using actual admin status
           ...PERMISSION_KEYS.map((key: string): Promise<any> => {
             const { service, params } = PERMISSION_MAP[key];
-            const payload = params(userName, isAdmin); // Use actual admin status
+            const payload = params(userName, isAdmin);
             return callSoapService(clientURL, service, payload);
           }),
         ]);
 
-        // Build permissions object
         const permissions = PERMISSION_KEYS.reduce(
           (acc: Record<string, string>, key: string, index: number) => {
             acc[key] = permissionResponses[index];
@@ -108,7 +106,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     []
   );
 
-  // Refresh permissions
   const refreshPermissions = useCallback(async () => {
     if (!userData.userName) return;
 
@@ -120,7 +117,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         ...newPermissions,
       }));
 
-      // Update storage
       const storage = localStorage.getItem("userData")
         ? localStorage
         : sessionStorage;
@@ -138,7 +134,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     }
   }, [userData, fetchAllPermissions]);
 
-  // Initial data loading
   useEffect(() => {
     const initAuth = async () => {
       if (userData.userName) {
@@ -169,13 +164,42 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     initAuth();
   }, [userData, fetchAllPermissions]);
 
-  // Login function
   const login = useCallback(
-    async (data: Partial<UserData>, rememberMe: boolean) => {
+    async (
+      loginCredential: string | Partial<UserData>,
+      password: string,
+      rememberMe: boolean = false
+    ) => {
       setLoading(true);
       try {
-        // Fetch permissions during login
-        const permissionsData = await fetchAllPermissions(data as UserData);
+        // Normalize loginCredential
+        const data: Partial<UserData> = typeof loginCredential === "string"
+          ? { userEmail: loginCredential }
+          : loginCredential;
+
+        // Authenticate with Firebase for email
+        if (typeof loginCredential === "string" && loginCredential.includes("@")) {
+          await signInWithEmailAndPassword(auth, loginCredential, password);
+        } else {
+          // Handle phone login (assuming verified via OTP in SignUpPage.tsx)
+          const authResponse = await callSoapService(
+            PUBLIC_SERVICE_URL,
+            "Public_User_Authenticate",
+            {
+              Credential: loginCredential,
+              Password: password,
+            }
+          );
+          if (authResponse !== "SUCCESS") {
+            throw new Error("Authentication failed");
+          }
+        }
+
+        // Fetch permissions
+        const permissionsData = await fetchAllPermissions({
+          ...defaultUserData,
+          ...data,
+        });
 
         const completeUserData: UserData = {
           ...defaultUserData,
@@ -183,7 +207,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           ...permissionsData,
         };
 
-        // Store data
         const storage = rememberMe ? localStorage : sessionStorage;
         storage.setItem("userData", JSON.stringify(completeUserData));
         if (rememberMe) {
@@ -191,8 +214,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         }
 
         setUserData(completeUserData);
-      } catch (error) {
-        console.error("Login permission error:", error);
+      } catch (error: unknown) {
+        const errorMessage = error instanceof Error
+          ? error.message
+          : "Login failed";
+        console.error("Login error:", errorMessage);
+        throw new Error(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -200,7 +227,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     [fetchAllPermissions]
   );
 
-  // Logout function
   const logout = useCallback(() => {
     setUserData(defaultUserData);
     localStorage.removeItem("userData");
@@ -208,7 +234,6 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     localStorage.removeItem("permissionsLastUpdated");
   }, []);
 
-  // Memoized context value
   const contextValue = useMemo(
     () => ({
       userData,

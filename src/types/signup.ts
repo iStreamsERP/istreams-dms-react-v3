@@ -1,5 +1,5 @@
 // src/types/signup.ts
-import { ConfirmationResult } from 'firebase/auth';
+import type { ConfirmationResult } from "firebase/auth";
 
 export interface SignUpFormValues {
   FULL_NAME: string;
@@ -16,7 +16,7 @@ export interface SignUpFormValues {
   GPS_LOCATION: string;
   GPS_LATITUDE: string;
   GPS_LONGITUDE: string;
-  userType: 'individual' | 'business' | '';
+  userType: "individual" | "business" | "";
   confirmPassword: string;
   acknowledged: boolean;
 }
