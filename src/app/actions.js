@@ -1,4 +1,3 @@
-//app/actions.js
 import axios from "axios";
 import { callSoapService } from "@/api/callSoapService";
 import { convertDataModelToStringData } from "@/utils/dataModelConverter";
@@ -21,12 +20,10 @@ export const addLocalQuestion = (questionData) => ({
   payload: questionData,
 });
 
-export const setAnalysisSummary = (summary) => {
-  return {
-    type: "SET_ANALYSIS_SUMMARY",
-    payload: summary,
-  };
-};
+export const setAnalysisSummary = (summary) => ({
+  type: "SET_ANALYSIS_SUMMARY",
+  payload: summary,
+});
 
 export const appendAnalysisSummary = (summary) => ({
   type: "APPEND_ANALYSIS_SUMMARY",
@@ -213,103 +210,100 @@ export const fetchQuestionsAndGenerateSummary =
 
 export const createDocument =
   (file, selectedType, analysisSummary, localQuestions, clientURL, userEmail) =>
-  async (dispatch) => {
-    if (!selectedType || analysisSummary.length === 0) {
-      dispatch(
-        setError(
-          "Please select a document type and generate a summary before creating a document"
-        )
-      );
-      return;
-    }
+    async (dispatch) => {
+      if (!selectedType || analysisSummary.length === 0) {
+        dispatch(
+          setError(
+            "Please select a document type and generate a summary before creating a document"
+          )
+        );
+        return;
+      }
 
-    dispatch(setLoading(true));
-    try {
-      // Create SYNM_DMS_MASTER record
-      const documentData = {
-        REF_SEQ_NO: -1,
-        DOC_RELATED_CATEGORY: selectedType,
-        USER_NAME: userEmail,
-        ENT_DATE: "",
-      };
-
-      const payload = {
-        UserName: userEmail,
-        DModelData: convertDataModelToStringData(
-          "SYNM_DMS_MASTER",
-          documentData
-        ),
-      };
-
-      const masterResponse = await callSoapService(
-        clientURL,
-        "DataModel_SaveData",
-        payload
-      );
-
-      const message = masterResponse;
-      const refSeqNo = message.match(/'(\d+)'/)[1];
-
-      // Save to SYNM_DMS_DOC_CATG_QA
-      const allQuestions = [...analysisSummary, ...localQuestions];
-      for (const item of allQuestions) {
-        const questionData = {
-          REF_SERIAL_NO: -1,
-          CATEGORY_NAME: selectedType,
-          QUESTION_FOR_AI: item.question,
-          REF_KEY: item.refKey || item.label,
-          IS_MANDATORY: item.isMandatory || "F",
+      dispatch(setLoading(true));
+      try {
+        const documentData = {
+          REF_SEQ_NO: -1,
+          DOC_RELATED_CATEGORY: selectedType,
+          USER_NAME: userEmail,
+          ENT_DATE: "",
         };
 
-        const questionPayload = {
+        const payload = {
           UserName: userEmail,
           DModelData: convertDataModelToStringData(
-            "SYNM_DMS_DOC_CATG_QA",
-            questionData
+            "SYNM_DMS_MASTER",
+            documentData
           ),
         };
 
-        await callSoapService(clientURL, "DataModel_SaveData", questionPayload);
+        const masterResponse = await callSoapService(
+          clientURL,
+          "DataModel_SaveData",
+          payload
+        );
+
+        const message = masterResponse;
+        const refSeqNo = message.match(/'(\d+)'/)[1];
+
+        const allQuestions = [...analysisSummary, ...localQuestions];
+        for (const item of allQuestions) {
+          const questionData = {
+            REF_SERIAL_NO: -1,
+            CATEGORY_NAME: selectedType,
+            QUESTION_FOR_AI: item.question,
+            REF_KEY: item.refKey || item.label,
+            IS_MANDATORY: item.isMandatory || "F",
+          };
+
+          const questionPayload = {
+            UserName: userEmail,
+            DModelData: convertDataModelToStringData(
+              "SYNM_DMS_DOC_CATG_QA",
+              questionData
+            ),
+          };
+
+          await callSoapService(clientURL, "DataModel_SaveData", questionPayload);
+        }
+
+        let serialCounter = 1;
+        for (const item of allQuestions) {
+          const answerData = {
+            REF_SEQ_NO: refSeqNo,
+            SERIAL_NO: serialCounter++,
+            CATEGORY_NAME: selectedType,
+            REF_KEY: item.refKey || item.label,
+            REF_VALUE: item.text,
+            ANSWER_FROM_AI: item.text,
+          };
+
+          const answerPayload = {
+            UserName: userEmail,
+            DModelData: convertDataModelToStringData(
+              "SYNM_DMS_DOC_VALUES",
+              answerData
+            ),
+          };
+
+          await callSoapService(clientURL, "DataModel_SaveData", answerPayload);
+        }
+
+        const fetchedDocument = await dispatch(
+          fetchDocsMaster(refSeqNo, clientURL)
+        );
+
+        dispatch(clearLocalQuestions());
+        dispatch(setAnalysisSummary([]));
+        dispatch(setSuccessMessage("Document created successfully"));
+        return { refSeqNo, fetchedDocument };
+      } catch (error) {
+        dispatch(setError("Failed to create document"));
+        console.error("Error creating document:", error);
+      } finally {
+        dispatch(setLoading(false));
       }
-
-      let serialCounter = 1;
-      // Save to SYNM_DMS_DOC_VALUES
-      for (const item of allQuestions) {
-        const answerData = {
-          REF_SEQ_NO: refSeqNo,
-          SERIAL_NO: serialCounter++,
-          CATEGORY_NAME: selectedType,
-          REF_KEY: item.refKey || item.label,
-          REF_VALUE: item.text,
-          ANSWER_FROM_AI: item.text,
-        };
-
-        const answerPayload = {
-          UserName: userEmail,
-          DModelData: convertDataModelToStringData(
-            "SYNM_DMS_DOC_VALUES",
-            answerData
-          ),
-        };
-
-        await callSoapService(clientURL, "DataModel_SaveData", answerPayload);
-      }
-      // Fetch SYNM_DMS_MASTER with refSeqNo
-      const fetchedDocument = await dispatch(
-        fetchDocsMaster(refSeqNo, clientURL)
-      );
-
-      dispatch(clearLocalQuestions());
-      dispatch(setAnalysisSummary([]));
-      dispatch(setSuccessMessage("Document created successfully"));
-      return { refSeqNo, fetchedDocument };
-    } catch (error) {
-      dispatch(setError("Failed to create document"));
-      console.error("Error creating document:", error);
-    } finally {
-      dispatch(setLoading(false));
-    }
-  };
+    };
 
 export const fetchDocsMaster = (refSeqNo, clientURL) => async (dispatch) => {
   try {
@@ -320,7 +314,7 @@ export const fetchDocsMaster = (refSeqNo, clientURL) => async (dispatch) => {
     });
 
     dispatch(setFetchedDocument(response[0] || null));
-    return response[0] || null; // Return the fetched document
+    return response[0] || null;
   } catch (error) {
     dispatch(setError("Failed to fetch docs master"));
     console.error("Error fetching docs master:", error);
@@ -332,3 +326,38 @@ export const setFile = (file) => ({
   type: "SET_FILE",
   payload: file,
 });
+
+export const generateAnalysisSummary =
+  (questions, mode, file, clientURL) => async (dispatch) => {
+    dispatch(setLoading(true));
+    try {
+      const formData = new FormData();
+      formData.append("File", file);
+      formData.append("Question", `${questions.join(", ")}`);
+
+      const res = await axios.post(API_URL, formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      const answerLines = res.data
+        .split("\n")
+        .filter((line) => line.trim() !== "")
+        .map((line) => line.replace(/^- /, "").trim());
+
+      const summary = answerLines.map((line, index) => {
+        const question = questions[index];
+        return { text: line, label: question, question };
+      });
+
+      if (mode === "append") {
+        dispatch(appendAnalysisSummary(summary));
+      } else {
+        dispatch(setAnalysisSummary(summary));
+      }
+    } catch (error) {
+      dispatch(setError("Failed to generate analysis summary"));
+      console.error("Error generating analysis summary:", error);
+    } finally {
+      dispatch(setLoading(false));
+    }
+  };

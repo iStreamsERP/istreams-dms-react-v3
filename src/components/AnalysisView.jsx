@@ -194,11 +194,10 @@ const TabButton = ({ icon, label, active, onClick }) => {
   const IconComponent = getIconComponent(icon);
   return (
     <button
-      className={`flex-1 px-4 py-2 font-medium flex items-center justify-center gap-2 text-sm ${
-        active
-          ? "text-cyan-700 dark:text-cyan-300 border-b-2 border-cyan-500 dark:border-cyan-400"
-          : "text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-300"
-      }`}
+      className={`flex-1 px-4 py-2 font-medium flex items-center justify-center gap-2 text-sm ${active
+        ? "text-cyan-700 dark:text-cyan-300 border-b-2 border-cyan-500 dark:border-cyan-400"
+        : "text-gray-600 dark:text-slate-400 hover:text-gray-800 dark:hover:text-slate-300"
+        }`}
       onClick={onClick}
     >
       <IconComponent className="w-4 h-4" />

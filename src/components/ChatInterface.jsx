@@ -130,15 +130,15 @@ export default function ChatInterface() {
       questionText = selectedText.text;
       answerText =
         selectedMessageIndex >= 0 &&
-        selectedMessageIndex + 1 < messages.length &&
-        messages[selectedMessageIndex + 1].sender !== "user"
+          selectedMessageIndex + 1 < messages.length &&
+          messages[selectedMessageIndex + 1].sender !== "user"
           ? messages[selectedMessageIndex + 1].text
           : "No answer available";
     } else {
       answerText = selectedText.text;
       questionText =
         selectedMessageIndex > 0 &&
-        messages[selectedMessageIndex - 1].sender === "user"
+          messages[selectedMessageIndex - 1].sender === "user"
           ? messages[selectedMessageIndex - 1].text
           : "No question available";
     }
@@ -361,17 +361,15 @@ const Message = ({ message, isAdded }) => {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex ${
-        isUser ? "justify-end" : "justify-start"
-      } message-container`}
+      className={`flex ${isUser ? "justify-end" : "justify-start"
+        } message-container`}
       data-id={message.id}
     >
       <div
-        className={`max-w-[min(85%,500px)] px-4 py-3 rounded-2xl relative ${
-          isUser
-            ? "bg-gradient-to-r from-cyan-600 to-teal-600 text-white rounded-br-none"
-            : "bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-200 rounded-bl-none shadow-sm border border-gray-200 dark:border-slate-700"
-        }`}
+        className={`max-w-[min(85%,500px)] px-4 py-3 rounded-2xl relative ${isUser
+          ? "bg-gradient-to-r from-cyan-600 to-teal-600 text-white rounded-br-none"
+          : "bg-white dark:bg-slate-800 text-gray-800 dark:text-slate-200 rounded-bl-none shadow-sm border border-gray-200 dark:border-slate-700"
+          }`}
       >
         <p className="break-words whitespace-pre-wrap">
           <ReactMarkdown
@@ -398,9 +396,8 @@ const Message = ({ message, isAdded }) => {
           </ReactMarkdown>
         </p>
         <div
-          className={`text-xs mt-1 ${
-            isUser ? "text-cyan-200" : "text-gray-500 dark:text-slate-400"
-          }`}
+          className={`text-xs mt-1 ${isUser ? "text-cyan-200" : "text-gray-500 dark:text-slate-400"
+            }`}
         >
           {message.timestamp}
         </div>

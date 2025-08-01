@@ -1,6 +1,6 @@
 import { AnimatePresence, motion } from "framer-motion";
 import { Check } from "lucide-react";
-import { useEffect, useState } from "react"; // Add useState
+import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useOutletContext } from "react-router-dom";
 import AnalysisView from "@/components/AnalysisView";
@@ -12,6 +12,7 @@ import {
   setDocumentAnalysis,
   setAnalysisSummary,
   clearLocalQuestions,
+  setError,
 } from "@/app/actions";
 import { useTheme } from "@/contexts/ThemeProvider";
 
@@ -23,15 +24,13 @@ export const UploadDocumentPage = () => {
   const documentAnalysis = useSelector((state) => state.documentAnalysis);
   const isLoading = useSelector((state) => state.isLoading);
   const error = useSelector((state) => state.error);
-  const file = useSelector((state) => state.file); // Retrieve file from Redux
-  const [previewUrl, setPreviewUrl] = useState(null); // State for previewUrl
+  const file = useSelector((state) => state.file);
+  const [previewUrl, setPreviewUrl] = useState(null);
 
-  // Generate previewUrl when file changes
   useEffect(() => {
     if (file) {
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
-      // Clean up URL when component unmounts or file changes
       return () => URL.revokeObjectURL(url);
     }
   }, [file]);
@@ -50,7 +49,7 @@ export const UploadDocumentPage = () => {
     dispatch(setAnalysisSummary([]));
     dispatch(clearLocalQuestions());
     dispatch(setError(""));
-    setPreviewUrl(null); // Clear previewUrl on reset
+    setPreviewUrl(null);
   };
 
   useEffect(() => {
@@ -89,7 +88,7 @@ export const UploadDocumentPage = () => {
           file={file}
           previewUrl={previewUrl}
           documentAnalysis={documentAnalysis}
-          isLoadingTranslation={isLoading} // Adjust if you have a specific isLoadingTranslation state
+          isLoadingTranslation={isLoading}
         />
       )}
     </div>

@@ -1,9 +1,8 @@
-// components/AnalysisSummary.jsx
 import { useEffect, useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { SquarePen, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { SquarePen, Loader2 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/useToast";
@@ -14,25 +13,24 @@ import {
   setSelectedType,
   appendAnalysisSummary,
   setError,
+  setLoading,
 } from "@/app/actions";
 import { callSoapService } from "@/api/callSoapService";
 import DocumentFormModal from "./dialog/DocumentFormModal";
 
-export default function AnalysisSummary() {
+export default function AnalysisSummary({ file, documentAnalysis }) {
   const { userData } = useAuth();
   const { toast } = useToast();
   const dispatch = useDispatch();
   const formModalRef = useRef(null);
 
-  const documentAnalysis = useSelector((state) => state.documentAnalysis);
   const isLoading = useSelector((state) => state.isLoading);
   const analysisSummary = useSelector((state) => state.analysisSummary);
   const localQuestions = useSelector((state) => state.localQuestions);
   const selectedType = useSelector((state) => state.selectedType);
   const successMessage = useSelector((state) => state.successMessage);
-  const file = useSelector((state) => state.file);
   const error = useSelector((state) => state.error);
-  const fetchedDocument = useSelector((state) => state.fetchedDocument); // Add fetchedDocument
+  const fetchedDocument = useSelector((state) => state.fetchedDocument);
 
   const [documentTypeOptions, setDocumentTypeOptions] = useState([]);
   const [showDropdown, setShowDropdown] = useState(
@@ -42,12 +40,10 @@ export default function AnalysisSummary() {
   const [isAnalysisModalOpen, setIsAnalysisModalOpen] = useState(false);
   const hasFetchedRef = useRef(false);
 
-  // Fetch document type options on mount
   useEffect(() => {
     fetchCategoryName();
   }, []);
 
-  // Handle initial fetch for selectedType
   useEffect(() => {
     if (selectedType && file && !hasFetchedRef.current) {
       dispatch(
@@ -57,7 +53,6 @@ export default function AnalysisSummary() {
     }
   }, [selectedType, file, dispatch, userData.clientURL]);
 
-  // Show toast for success message
   useEffect(() => {
     if (successMessage) {
       toast({
@@ -68,7 +63,6 @@ export default function AnalysisSummary() {
     }
   }, [successMessage, toast]);
 
-  // Append localQuestions to analysisSummary
   useEffect(() => {
     if (localQuestions.length > 0) {
       const existingQuestions = new Set(
@@ -110,29 +104,41 @@ export default function AnalysisSummary() {
   };
 
   const handleConfirmDocumentType = async (type) => {
+    if (!type) {
+      setConfirmationFailed(true);
+      setShowDropdown(true);
+      dispatch(setError("No document type provided"));
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "No document type provided. Please select a type.",
+      });
+      return;
+    }
+
+    dispatch(setLoading(true));
     try {
+      // Check if category exists by name
       const matchResponse = await callSoapService(
         userData.clientURL,
         "DataModel_GetData",
         {
           DataModelName: "SYNM_DMS_DOC_CATEGORIES",
-          WhereCondition: `LOWER(CATEGORY_NAME) = '${type
-            .toLowerCase()
-            .trim()}'`,
+          WhereCondition: `LOWER(CATEGORY_NAME) = '${type.toLowerCase().trim()}'`,
           Orderby: "",
         }
       );
 
       let matchedType = matchResponse?.[0]?.CATEGORY_NAME;
+
+      // Fallback to search tags if no exact match
       if (!matchedType) {
         const tagResponse = await callSoapService(
           userData.clientURL,
           "DataModel_GetData",
           {
             DataModelName: "SYNM_DMS_DOC_CATEGORIES",
-            WhereCondition: `LOWER(SEARCH_TAGS) LIKE '%${type
-              .toLowerCase()
-              .trim()}%'`,
+            WhereCondition: `LOWER(SEARCH_TAGS) LIKE '%${type.toLowerCase().trim()}%'`,
             Orderby: "",
           }
         );
@@ -146,36 +152,45 @@ export default function AnalysisSummary() {
         toast({
           variant: "destructive",
           title: "Error",
-          description: `Document type "${type}" not found`,
+          description: `Document type "${type}" not found. Please select a valid type from the dropdown.`,
         });
         return;
       }
 
       dispatch(setSelectedType(matchedType));
+      setConfirmationFailed(false);
       setShowDropdown(false);
       hasFetchedRef.current = false;
-      dispatch(
+      await dispatch(
         fetchQuestionsAndGenerateSummary(matchedType, file, userData.clientURL)
       );
       hasFetchedRef.current = true;
     } catch (error) {
       setConfirmationFailed(true);
-      dispatch(setError("Failed to confirm document type"));
+      setShowDropdown(true);
+      dispatch(setError("Failed to verify document type"));
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Failed to confirm document type",
+        description: "Failed to verify document type. Please select a type manually.",
       });
+    } finally {
+      dispatch(setLoading(false));
     }
   };
 
   const handleCreateDocument = async () => {
-    if (!file) {
-      dispatch(setError("No file available to create document"));
+    if (!file || !selectedType || analysisSummary.length === 0) {
+      dispatch(
+        setError(
+          "Please select a valid document type and generate a summary before creating a document"
+        )
+      );
       toast({
         variant: "destructive",
         title: "Error",
-        description: "No file available to create document",
+        description:
+          "Please select a valid document type and generate a summary before creating a document",
       });
       return;
     }
@@ -193,7 +208,6 @@ export default function AnalysisSummary() {
       );
 
       if (fetchedDocument) {
-        // Open the modal with the fetched document
         formModalRef.current.showModal();
       } else {
         dispatch(setError("Failed to fetch document after creation"));
@@ -204,7 +218,7 @@ export default function AnalysisSummary() {
         });
       }
     } catch (error) {
-      // Error is already dispatched in createDocument
+      dispatch(setError("Failed to create document"));
       toast({
         variant: "destructive",
         title: "Error",
@@ -214,8 +228,10 @@ export default function AnalysisSummary() {
   };
 
   const handleDropdownChange = (e) => {
-    dispatch(setSelectedType(e.target.value));
+    const newType = e.target.value;
+    dispatch(setSelectedType(newType));
     setConfirmationFailed(false);
+    setShowDropdown(newType === "");
     dispatch(setError(""));
     hasFetchedRef.current = false;
   };
@@ -238,9 +254,7 @@ export default function AnalysisSummary() {
           </Button>
           <Button
             onClick={handleCreateDocument}
-            disabled={
-              isLoading || !selectedType || analysisSummary.length === 0
-            }
+            disabled={isLoading || !selectedType || analysisSummary.length === 0}
             className="bg-cyan-600 hover:bg-cyan-700 text-white"
           >
             {isLoading ? (
@@ -255,75 +269,67 @@ export default function AnalysisSummary() {
         </div>
       </div>
 
-      {analysisSummary.length === 0 &&
-        (documentAnalysis?.documentType || showDropdown) &&
-        !isLoading && (
-          <Alert
-            variant="default"
-            className="border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700"
-          >
-            {documentAnalysis?.documentType &&
-              !confirmationFailed &&
-              !showDropdown && (
-                <>
-                  <AlertTitle className="text-lg font-semibold">
-                    Detected Document Type:{" "}
-                    <strong>{documentAnalysis.documentType}</strong>
-                  </AlertTitle>
-                  <AlertDescription className="mt-4">
-                    <p className="mb-4 text-gray-600 dark:text-slate-400">
-                      Is this the correct document type?
-                    </p>
-                    <div className="flex gap-3 flex-wrap">
-                      <Button
-                        size="lg"
-                        onClick={() =>
-                          handleConfirmDocumentType(
-                            documentAnalysis.documentType
-                          )
-                        }
-                        disabled={isLoading}
-                        className="bg-cyan-600 hover:bg-cyan-700 text-white"
-                      >
-                        {isLoading ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Confirming...
-                          </>
-                        ) : (
-                          "Yes, it is correct"
-                        )}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="lg"
-                        onClick={() => setShowDropdown(true)}
-                        disabled={isLoading}
-                        className="border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-600"
-                      >
-                        No, select another type
-                      </Button>
-                    </div>
-                  </AlertDescription>
-                </>
-              )}
-
-            {confirmationFailed && (
-              <AlertTitle className="text-amber-600 dark:text-amber-400">
-                <strong>Category not found</strong> for "
-                {documentAnalysis?.documentType}". Please select a document
-                type.
-              </AlertTitle>
-            )}
-
-            {!documentAnalysis?.documentType && !confirmationFailed && (
+      {analysisSummary.length === 0 && !isLoading && (
+        <Alert
+          variant="default"
+          className="border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-700"
+        >
+          {(documentAnalysis?.documentType && !showDropdown && !confirmationFailed) && (
+            <>
               <AlertTitle className="text-lg font-semibold">
-                Select Document Type
+                Detected Document Type: <strong>{documentAnalysis.documentType}</strong>
               </AlertTitle>
-            )}
+              <AlertDescription className="mt-4">
+                <p className="mb-4 text-gray-600 dark:text-slate-400">
+                  Is this the correct document type?
+                </p>
+                <div className="flex gap-3 flex-wrap">
+                  <Button
+                    size="lg"
+                    onClick={() => handleConfirmDocumentType(documentAnalysis.documentType)}
+                    disabled={isLoading}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Confirming...
+                      </>
+                    ) : (
+                      "Yes, it is correct"
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => {
+                      setShowDropdown(true);
+                      setConfirmationFailed(false);
+                      dispatch(setError(""));
+                    }}
+                    disabled={isLoading}
+                    className="border-gray-300 dark:border-slate-600 hover:bg-gray-100 dark:hover:bg-slate-600"
+                  >
+                    No, select another type
+                  </Button>
+                </div>
+              </AlertDescription>
+            </>
+          )}
 
-            {showDropdown && (
-              <div className="mt-4 space-y-4">
+          {(showDropdown || confirmationFailed) && (
+            <>
+              {confirmationFailed && (
+                <AlertTitle className="text-amber-600 dark:text-amber-400">
+                  <strong>Category not found</strong> for "{documentAnalysis?.documentType || selectedType || 'Unknown'}". Please select a valid document type below.
+                </AlertTitle>
+              )}
+              {!confirmationFailed && !documentAnalysis?.documentType && (
+                <AlertTitle className="text-lg font-semibold">
+                  Select Document Type
+                </AlertTitle>
+              )}
+              <AlertDescription className="mt-4 space-y-4">
                 <label className="block text-sm font-medium text-gray-700 dark:text-slate-300">
                   {confirmationFailed
                     ? "Select the correct document type:"
@@ -357,10 +363,11 @@ export default function AnalysisSummary() {
                     "Confirm Document Type"
                   )}
                 </Button>
-              </div>
-            )}
-          </Alert>
-        )}
+              </AlertDescription>
+            </>
+          )}
+        </Alert>
+      )}
 
       {analysisSummary.length > 0 && !isLoading && (
         <div className="space-y-4 mt-6">
@@ -384,9 +391,9 @@ export default function AnalysisSummary() {
       {analysisSummary.length === 0 &&
         !isLoading &&
         !showDropdown &&
+        !confirmationFailed &&
         !documentAnalysis?.documentType && (
           <div className="text-center py-12">
-            <div className="mx-auto w-16 h-16 text-cyan-500 dark:text-cyan-400 mb-4" />
             <h4 className="text-xl font-semibold text-gray-800 dark:text-slate-200 mb-2">
               No Analysis Available
             </h4>
@@ -394,7 +401,11 @@ export default function AnalysisSummary() {
               Please select a document type to generate the analysis summary.
             </p>
             <Button
-              onClick={() => setShowDropdown(true)}
+              onClick={() => {
+                setShowDropdown(true);
+                setConfirmationFailed(false);
+                dispatch(setError(""));
+              }}
               disabled={isLoading}
               className="bg-cyan-600 hover:bg-cyan-700 text-white"
             >
@@ -421,7 +432,7 @@ export default function AnalysisSummary() {
 
       <DocumentFormModal
         formModalRef={formModalRef}
-        selectedDocument={fetchedDocument} // Use fetchedDocument, fallback to hardcoded
+        selectedDocument={fetchedDocument}
       />
     </div>
   );
