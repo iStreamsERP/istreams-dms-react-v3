@@ -1,19 +1,16 @@
 // src/contexts/AuthContext.tsx
+import { callSoapService } from "@/api/callSoapService";
+import { PERMISSION_KEYS, PERMISSION_MAP } from "@/permissions";
+import type { AuthContextType, UserData } from "@/types/auth";
+import type { ReactNode } from "react";
 import {
   createContext,
   useCallback,
   useContext,
   useEffect,
-  useState,
   useMemo,
+  useState,
 } from "react";
-import type { ReactNode } from "react";
-import { callSoapService } from "@/api/callSoapService";
-import { PERMISSION_KEYS, PERMISSION_MAP } from "@/permissions";
-import type { UserData } from "@/types/auth";
-import type { AuthContextType } from "@/types/auth";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../firebase.config";
 
 const AuthContext = createContext<AuthContextType | null>(null);
 const PUBLIC_SERVICE_URL = import.meta.env.VITE_SOAP_ENDPOINT;
@@ -164,68 +161,51 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     initAuth();
   }, [userData, fetchAllPermissions]);
 
-  const login = useCallback(
-    async (
-      loginCredential: string | Partial<UserData>,
-      password: string,
-      rememberMe: boolean = false
-    ) => {
-      setLoading(true);
-      try {
-        // Normalize loginCredential
-        const data: Partial<UserData> = typeof loginCredential === "string"
-          ? { userEmail: loginCredential }
+const login = useCallback(
+  async (
+    loginCredential: string | Partial<UserData>,
+    password: string,
+    rememberMe?: boolean
+  ) => {
+    setLoading(true);
+    console.log(password);
+    
+    try {
+      // Convert string loginCredential to Partial<UserData> if needed
+      const data: Partial<UserData> =
+        typeof loginCredential === "string"
+          ? { userEmail: loginCredential } // Map string to userEmail
           : loginCredential;
 
-        // Authenticate with Firebase for email
-        if (typeof loginCredential === "string" && loginCredential.includes("@")) {
-          await signInWithEmailAndPassword(auth, loginCredential, password);
-        } else {
-          // Handle phone login (assuming verified via OTP in SignUpPage.tsx)
-          const authResponse = await callSoapService(
-            PUBLIC_SERVICE_URL,
-            "Public_User_Authenticate",
-            {
-              Credential: loginCredential,
-              Password: password,
-            }
-          );
-          if (authResponse !== "SUCCESS") {
-            throw new Error("Authentication failed");
-          }
-        }
+      // Optionally, validate password here via a SOAP call if needed
+      // Example: await callSoapService(data.serviceUrl, "verifyauthentication", { username: data.userEmail, password });
 
-        // Fetch permissions
-        const permissionsData = await fetchAllPermissions({
-          ...defaultUserData,
-          ...data,
-        });
+      // Fetch permissions during login
+      const permissionsData = await fetchAllPermissions(data as UserData);
 
-        const completeUserData: UserData = {
-          ...defaultUserData,
-          ...data,
-          ...permissionsData,
-        };
+      const completeUserData: UserData = {
+        ...defaultUserData,
+        ...data,
+        ...permissionsData,
+      };
 
-        const storage = rememberMe ? localStorage : sessionStorage;
-        storage.setItem("userData", JSON.stringify(completeUserData));
-        if (rememberMe) {
-          localStorage.setItem("permissionsLastUpdated", Date.now().toString());
-        }
-
-        setUserData(completeUserData);
-      } catch (error: unknown) {
-        const errorMessage = error instanceof Error
-          ? error.message
-          : "Login failed";
-        console.error("Login error:", errorMessage);
-        throw new Error(errorMessage);
-      } finally {
-        setLoading(false);
+      // Store data
+      const storage = rememberMe ? localStorage : sessionStorage;
+      storage.setItem("userData", JSON.stringify(completeUserData));
+      if (rememberMe) {
+        localStorage.setItem("permissionsLastUpdated", Date.now().toString());
       }
-    },
-    [fetchAllPermissions]
-  );
+
+      setUserData(completeUserData);
+    } catch (error) {
+      console.error("Login permission error:", error);
+      throw error; // Rethrow to handle in UI
+    } finally {
+      setLoading(false);
+    }
+  },
+  [fetchAllPermissions]
+);
 
   const logout = useCallback(() => {
     setUserData(defaultUserData);

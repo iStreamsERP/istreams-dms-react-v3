@@ -245,7 +245,8 @@ export const LoginFormPage = () => {
                 isAdmin: userData.user.isAdmin,
               };
 
-              login(payload, rememberMe);
+              // Update the login call to include password
+              await login(payload, password, rememberMe);
 
               navigate("/");
             } else {
